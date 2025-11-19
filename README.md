@@ -68,7 +68,10 @@ Clone the repository directly as `.context-engine` in your project:
 
 ```bash
 cd /path/to/your/project
-git clone http://biz-srv58.corp.biztocloud.com:3001/BizToCloud/ContextEngine.git .context-engine
+```
+
+```bash
+git clone https://github.com/Pewejekubam/ContextEngine.git .context-engine
 ```
 
 This creates a `.context-engine` directory containing the complete runtime.
@@ -86,6 +89,9 @@ Download and extract the release archive:
 
 ```bash
 cd /path/to/your/project
+```
+
+```bash
 tar -xf context-engine-runtime-v3.1.0-20251116-180253Z.tar
 ```
 
@@ -169,8 +175,8 @@ Your local configuration in `config/` is preserved.
 
 ## Community
 
-- **[GitHub Discussions](http://biz-srv58.corp.biztocloud.com:3001/BizToCloud/ContextEngine/discussions)** - Ask questions, share ideas, show your use cases
-- **[Issues & Bug Reports](http://biz-srv58.corp.biztocloud.com:3001/BizToCloud/ContextEngine/issues)** - Report bugs or suggest features
+- **[GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)** - Ask questions, share ideas, show your use cases
+- **[Issues & Bug Reports](https://github.com/Pewejekubam/ContextEngine/issues)** - Report bugs or suggest features
 - **[FAQ](docs/FAQ.md)** - Common questions answered
 - **[Community Guide](docs/COMMUNITY.md)** - How to engage with the community
 - **[Contributing](CONTRIBUTING.md)** - How to contribute code and documentation
@@ -183,7 +189,7 @@ See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Currently plann
 - v3.3.0 (Q3 2025) - Multi-AI support, GitHub Actions, community extensions
 - v3.4.0 (Q4 2025) - Cloud sync, web UI, enhanced collaboration
 
-Have ideas? [Start a discussion](http://biz-srv58.corp.biztocloud.com:3001/BizToCloud/ContextEngine/discussions) to suggest features!
+Have ideas? [Start a discussion](https://github.com/Pewejekubam/ContextEngine/discussions) to suggest features!
 
 ## Requirements
 
