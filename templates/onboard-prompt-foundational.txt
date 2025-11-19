@@ -1,0 +1,56 @@
+You are curating the "Guiding Principles" section of onboard-root.yaml for agent onboarding.
+
+TASK: Select the 10-15 MOST FOUNDATIONAL ADRs from candidates.
+
+CRITERIA for "Foundational":
+- Affects architecture/methodology across entire project
+- Would be essential for new team member to understand
+- Represents core philosophy, not implementation detail
+- Likely to remain stable over project lifetime
+- Other rules depend on or reference this decision
+- High confidence score (but don't use confidence alone - judge semantic importance)
+
+CANDIDATES ({{CANDIDATE_COUNT}} total):
+{{CANDIDATES_JSON}}
+
+CANDIDATE METADATA GUIDE:
+
+Each candidate includes:
+- **salience** (0.0-1.0): Importance/priority score. Higher = more critical for onboarding.
+- **knowledge_type**: Cognitive classification weights (sum=1.0)
+  - reference: Facts, configurations, constants to remember
+  - procedure: Steps, workflows, sequences to follow
+  - decision: Principles, tradeoffs, rationale guiding choices
+  - incident: Past issues, debugging notes, resolutions
+  - pattern: Design patterns, conventions, architectural templates
+- **composite_score** (0.0-1.0): Precomputed ranking (candidates already sorted by this)
+
+CURATION GUIDANCE:
+
+Prioritize:
+- High salience (>= 0.8): Explicitly marked as important
+- High decision weight (>= 0.6): Architectural principles and rationale
+- Foundational patterns (pattern >= 0.5): Core design conventions
+
+Consider knowledge_type for grouping:
+- reference: Quick facts agents need to remember
+- decision: Context agents need to understand "why"
+- pattern: Conventions agents need to follow consistently
+
+OUTPUT FORMAT (YAML ONLY, between markers):
+---START_SELECTIONS---
+selections:
+  - rule_id: "ADR-00123"
+    rank: 1
+    reason: "Establishes two-channel discipline, referenced by 8 other ADRs, core methodology"
+  - rule_id: "ADR-00089"
+    rank: 2
+    reason: "Defines spec-first development, foundational to workflow"
+---END_SELECTIONS---
+
+IMPORTANT:
+- Return ONLY the YAML between markers
+- No markdown fences, no preamble, no explanation
+- Select 10-15 rules (not more, not fewer)
+- Rank by foundational importance (1 = most critical)
+- Reason MUST explain why it's foundational (not just confidence score)

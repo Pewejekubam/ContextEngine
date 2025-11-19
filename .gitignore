@@ -1,0 +1,74 @@
+# Context Engine Staging Repository - .gitignore
+
+# Project intelligence (local development only)
+CLAUDE.md
+.claude/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor/IDE files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+*.log
+
+# Archives (binary distribution artifacts use GitHub Releases)
+*.tar
+*.tar.gz
+*.zip
+
+# Node modules (if any tooling is added)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if any tooling is added)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Build outputs (not applicable for this staging repo, but good practice)
+dist/
+build/
+*.egg-info/
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Internal artifacts and user data
+DEFERRED.manifest.*
+data/rules.db
+data/chatlogs/*.yaml
+onboard-root.yaml
+
+# Build/deployment scripts (internal use)
+bu-project.sh
+release.sh
+RELEASING.md
+GITHUB_SETUP.md

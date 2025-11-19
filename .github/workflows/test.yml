@@ -1,0 +1,127 @@
+name: Validate Distribution Package
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-artifacts:
+    runs-on: ubuntu-latest
+    name: Validate Generated Artifacts
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install PyYAML
+
+    - name: Validate Python script syntax
+      run: |
+        echo "Checking Python script syntax..."
+        python -m py_compile scripts/*.py
+        echo "✓ All Python scripts have valid syntax"
+
+    - name: Validate YAML configuration files
+      run: |
+        python -c '
+import yaml
+import glob
+import sys
+
+print("Validating YAML files...")
+errors = 0
+for file in sorted(glob.glob("config/*.yaml") + glob.glob("config/*.yml")):
+    try:
+        with open(file) as f:
+            yaml.safe_load(f)
+        print(f"  ✓ {file}")
+    except Exception as e:
+        print(f"  ✗ {file}: {e}")
+        errors += 1
+
+if errors > 0:
+    print(f"\n✗ {errors} YAML validation error(s)")
+    sys.exit(1)
+else:
+    print("\n✓ All YAML configuration files valid")
+'
+
+    - name: Validate database schema
+      run: |
+        python -c '
+import sqlite3
+import os
+
+print("Validating SQLite schema...")
+schema_file = "schema/rules.db.schema"
+if os.path.exists(schema_file):
+    with open(schema_file) as f:
+        schema = f.read()
+    try:
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(schema)
+        print("✓ Database schema is valid")
+    except Exception as e:
+        print(f"✗ Schema validation failed: {e}")
+        exit(1)
+else:
+    print("ℹ️  Schema file not found (optional)")
+'
+
+    - name: Check for placeholder URLs in documentation
+      run: |
+        python -c '
+import re
+import os
+import sys
+
+print("Checking documentation...")
+errors = 0
+for root, dirs, files in os.walk("."):
+    dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["node_modules", "__pycache__"]]
+
+    for file in files:
+        if file.endswith(".md"):
+            path = os.path.join(root, file)
+            with open(path) as f:
+                content = f.read()
+
+            if "YOUR-USERNAME" in content:
+                print(f"  ✗ {path}: Contains placeholder YOUR-USERNAME")
+                errors += 1
+
+if errors > 0:
+    print(f"\n✗ {errors} documentation error(s) found")
+    sys.exit(1)
+else:
+    print("✓ Documentation validation passed")
+'
+
+    - name: Validate Makefile targets
+      run: |
+        echo "Checking Makefile structure..."
+        grep -q "^help:" Makefile && echo "✓ Makefile has help target" || (echo "✗ Missing help target"; exit 1)
+        echo "✓ Makefile is valid"
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [validate-artifacts]
+    if: always()
+
+    steps:
+    - name: Report validation results
+      run: |
+        if [ "${{ needs.validate-artifacts.result }}" = "success" ]; then
+          echo "✅ All validation checks passed"
+        else
+          echo "⚠️  Some validation checks failed - review above"
+        fi

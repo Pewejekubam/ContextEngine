@@ -1,0 +1,75 @@
+# Context Engine Tag Vocabulary Template v2.0.0
+# Structured schema with domain descriptions and aliases
+# Specification: 23-tag-vocabulary-structured-schema-spec-v1.1.0.md
+
+# This file contains STUB DOMAINS for build-time template generation only
+
+# IMPORTANT: Do not use this file directly!
+# Run '.context-engine-init.md' to discover project-specific domains
+# and replace these stubs with actual domain vocabulary.
+
+# After initialization, tier_1_domains will contain your project's
+# discovered domains with semantic descriptions and aliases.
+
+# Schema version for future migrations
+schema_version: "2.0.0"
+
+# Tier 1: High-level domains (dict format with descriptions and aliases)
+tier_1_domains:
+  __DOMAIN_1__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_2__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_3__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_4__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_5__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_6__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_7__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+  __DOMAIN_8__:
+    description: "Stub domain placeholder - replaced during initialization"
+    aliases: []
+
+# Tier 2: Domain-specific tags
+tier_2_tags:
+  __DOMAIN_1__: []
+  __DOMAIN_2__: []
+  __DOMAIN_3__: []
+  __DOMAIN_4__: []
+  __DOMAIN_5__: []
+  __DOMAIN_6__: []
+  __DOMAIN_7__: []
+  __DOMAIN_8__: []
+
+# Forbidden tags (rejected during validation)
+forbidden_tags:
+  - todo
+  - fixme
+  - hack
+  - temp
+  - wip
+
+# Stopwords (filtered from tag suggestions)
+stopwords:
+  - the
+  - a
+  - an
+  - and
+  - or
+  - but
+  - in
+  - on
+  - at
+  - to
+  - for
