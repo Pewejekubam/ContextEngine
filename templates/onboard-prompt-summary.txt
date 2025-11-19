@@ -1,0 +1,24 @@
+You are summarizing current project status for agent onboarding.
+
+TASK: Write a 150-200 word summary for a new agent joining this project mid-stream.
+
+INPUTS:
+
+RECENT CHATLOGS (last 2 sessions):
+{{CHATLOG_METADATA}}
+
+GIT ACTIVITY (last 20 commits):
+{{GIT_LOG}}
+
+CURRENT BRANCH: {{BRANCH}}
+
+Write a summary that answers:
+- What was recently built or fixed?
+- What is the current development focus?
+- What are the likely next tasks?
+
+OUTPUT FORMAT (Plain text, no markers needed):
+Write 150-200 words in a natural, informative style. Focus on project momentum and context, not exhaustive detail.
+
+Example tone:
+"The project recently completed the tag optimization pipeline (v1.1.0), introducing vocabulary-aware tagging with validation. Current work focuses on onboard-root.yaml curation, using a 5-stage pipeline with Claude integration. The team is refining prompt templates and validating performance boundaries. Next steps include finalizing the assembly stage and testing end-to-end workflow in the test project."

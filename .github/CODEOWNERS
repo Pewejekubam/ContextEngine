@@ -1,0 +1,35 @@
+# Context Engine CODEOWNERS
+# This file designates code owners for the Context Engine project.
+# Designations ensure code review quality and maintain project standards.
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default code owners for everything in the repo
+* @Pewejekubam
+
+# Documentation owners
+*.md @Pewejekubam
+docs/ @Pewejekubam
+README.md @Pewejekubam
+
+# Core functionality
+scripts/ @Pewejekubam
+schema/ @Pewejekubam
+commands/ @Pewejekubam
+
+# Project metadata
+CHANGELOG.md @Pewejekubam
+ROADMAP.md @Pewejekubam
+MAINTAINERS.md @Pewejekubam
+
+# Configuration & governance
+CONTRIBUTING.md @Pewejekubam
+CODE_OF_CONDUCT.md @Pewejekubam
+SECURITY.md @Pewejekubam
+LICENSE @Pewejekubam
+
+# Workflow & CI/CD
+.github/ @Pewejekubam
+Makefile @Pewejekubam
+pyproject.toml @Pewejekubam
+setup.sh @Pewejekubam

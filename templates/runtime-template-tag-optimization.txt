@@ -1,0 +1,84 @@
+# TEMPLATE_METADATA
+# Template: runtime-template-tag-optimization
+# Version: v1.1.0
+# Updated: 2025-10-27
+# Variables:
+#   - rule_id: Rule identifier (e.g., ADR-001)
+#   - rule_type: Rule category (decisions|constraints|invariants)
+#   - title: Rule topic/title
+#   - description: Full rule description text
+#   - domain: Rule domain tag
+#   - tags: Current tag array (JSON format)
+#   - tier_1_domains: Comma-separated list of valid domain tags
+#   - tier_2_tags: YAML formatted tag groups by domain
+#   - vocabulary_mappings: Dictionary mapping raw words to canonical tags
+#   - synonyms: Grouped synonym lists
+#   - forbidden_stopwords: Regex patterns for forbidden tags
+#   - session_context: Session metadata and context
+#
+# Changelog:
+# - v1.2.1 (2025-11-16): Added reusability guidance - encourage tags that apply to multiple rules
+# - v1.2.0 (2025-11-16): Added bootstrap mode for empty vocabulary domains
+# - v1.1.0 (2025-10-27): Added vocabulary-aware prompting
+# - v1.0.0 (2025-10-20): Initial prompt template
+# END_TEMPLATE_METADATA
+
+Optimize tags for this rule using the vocabulary provided.
+
+Rule ID: {rule_id}
+Type: {rule_type}
+Title: {title}
+Description: {description}
+Domain: {domain}
+
+Current tags: {tags}
+
+Tag Vocabulary:
+
+Valid Domains: {tier_1_domains}
+
+Tier-2 Tags by Domain:
+{tier_2_tags}
+
+Vocabulary Mappings (raw word → canonical tag):
+{vocabulary_mappings}
+
+Synonym Groups:
+{synonyms}
+
+Forbidden Stopwords:
+{forbidden_stopwords}
+
+Session Context:
+{session_context}
+
+Instructions:
+1. Analyze the rule's description and domain
+2. Think about reusability: choose tags that would likely apply to OTHER rules in this domain, not just this one
+3. Select 2-5 tier-2 tags that best categorize this rule:
+   - If the domain has existing tier-2 tags: prefer selecting from those
+   - If the domain has NO tier-2 tags (bootstrap): PROPOSE new kebab-case tags based on the rule's key concepts (e.g., "test-driven-development", "mock-infrastructure", "validation-framework")
+   - Proposed tags should be reusable across similar rules, not overly specific to one rule
+   - **NEVER use tier-1 domain names as tier-2 tags** (qbd, gnucash, system, pipeline, transformer, parser are INVALID as tier-2 tags)
+3. Use vocabulary mappings to transform raw concepts to canonical tags
+4. Prefer tags from the rule's domain when applicable
+5. Avoid forbidden stopwords and synonym duplicates
+6. Consider session context for tag relevance
+
+**CRITICAL**: Tier-2 tags must be specific concepts, NOT domain categories.
+WRONG: ["system", "pipeline", "transformer"] (these are tier-1 domains)
+RIGHT: ["test-driven-development", "mock-infrastructure", "validation-framework"]
+
+Return ONLY a JSON object with this structure:
+{{
+  "tags": ["tag1", "tag2", "tag3"],
+  "confidence": 0.95,
+  "reasoning": "Brief explanation of tag selections"
+}}
+
+Confidence scoring:
+- 0.9-1.0: All tags from tier-2 vocabulary, perfect domain match
+- 0.7-0.89: Mix of vocabulary tags and proposed tags, good domain match
+- 0.6-0.79: Proposed new tags (bootstrap mode) that are semantically appropriate and reusable
+- 0.5-0.69: Some vocabulary tags, reasonable domain match
+- Below 0.5: Uncertain or weak matches

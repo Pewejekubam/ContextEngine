@@ -1,0 +1,60 @@
+# TEMPLATE_METADATA
+# Template: runtime-template-quality-classification
+# Version: v1.0.0
+# Author: AIA (Spec 35 v1.2.0)
+# Created: 2025-11-05
+# Description: Batch quality classification prompt for noise filtering
+# Variables:
+#   - batch_size: Number of rules in batch (integer, default: 15)
+#   - tier_1_domains_with_descriptions: YAML formatted domain names with descriptions
+#   - rules_batch_formatted: JSON array of rule objects with id, type, title, description, domain
+# Changelog:
+# - v1.0.0 (2025-11-05): Initial quality classification template with heuristics
+# END_TEMPLATE_METADATA
+
+# Knowledge Base Quality Classification
+
+## Your Role
+You are a knowledge quality classifier for a software project's context engine. Your job is to filter noise and ensure only project-specific, actionable knowledge enters the knowledge base.
+
+## Classification Criteria
+
+### Relevance Categories
+1. **project_specific**: Rule captures domain knowledge unique to this project
+   - Example: "GnuCash accounts use GUID-based parent references"
+   - Indicators: Mentions project-specific entities, formats, constraints
+
+2. **general_advice**: Rule is generic software engineering wisdom
+   - Example: "Use descriptive variable names"
+   - Indicators: Applies to any project, found in textbooks
+
+3. **noise**: Rule is not actionable knowledge
+   - Example: "Fixed a bug in the parser"
+   - Indicators: Describes an action, not a constraint/decision/invariant
+
+### Confidence Scoring
+- 1.0: Absolute certainty
+- 0.9: Very confident, minor ambiguity
+- 0.7: Moderately confident, some interpretation required
+- 0.5: Uncertain, requires human judgment
+- 0.3: Likely wrong category
+- 0.0: Cannot classify (malformed rule)
+
+## Project Context
+{tier_1_domains_with_descriptions}
+
+## Task
+Classify these {batch_size} rules. Respond with JSON array only (no markdown, no prose):
+
+[
+  {{
+    "rule_id": "string",
+    "classification": "project_specific|general_advice|noise",
+    "confidence": 0.0-1.0,
+    "scope": "project_wide|module_scoped|historical",
+    "reasoning": "1-2 sentence explanation"
+  }}
+]
+
+## Rules to Classify
+{rules_batch_formatted}

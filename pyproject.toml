@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "context-engine"
+version = "3.1.0"
+description = "A portable, drop-in tool for capturing and managing engineering decisions, constraints, and architectural knowledge across projects."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Pewejekubam", email = "dd1639@outlook.com"}
+]
+keywords = ["engineering-decisions", "knowledge-management", "onboarding", "architecture", "claude-code"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Quality Assurance",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=5.0",
+]
+
+[project.optional-dependencies]
+# Development dependencies intentionally minimal.
+# This is a generated artifact distribution package, not a library.
+# Testing and code quality validation happen in the build engine project.
+dev = []
+
+[project.urls]
+Homepage = "https://github.com/Pewejekubam/ContextEngine"
+Documentation = "https://github.com/Pewejekubam/ContextEngine#documentation"
+Repository = "https://github.com/Pewejekubam/ContextEngine.git"
+"Bug Tracker" = "https://github.com/Pewejekubam/ContextEngine/issues"
+"Discussions" = "https://github.com/Pewejekubam/ContextEngine/discussions"
+
+[tool.setuptools]
+packages = []
