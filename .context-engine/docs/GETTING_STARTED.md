@@ -40,8 +40,10 @@ engineering decisions, constraints, and architectural knowledge across projects.
    ```
 
 2. **First-time initialization** (discovers project-specific domains):
-   ```bash
-   Ask Claude: "Please process .context-engine-init.md"
+
+   Ask Claude:
+   ```
+   Please process .context-engine-init.md
    ```
 
    The initialization prompt will:

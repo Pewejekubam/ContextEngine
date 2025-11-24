@@ -33,7 +33,10 @@ Context Engine initialization is a **one-shot, automated process** that configur
 
 **Command**:
 
-Ask Claude: "Please process .context-engine-init.md"
+Ask Claude:
+```
+Please process .context-engine-init.md
+```
 
 ### Upgrade (Compatible Versions)
 
@@ -48,7 +51,10 @@ Ask Claude: "Please process .context-engine-init.md"
 
 **Command**:
 
-Ask Claude: "Please process .context-engine-init.md"
+Ask Claude:
+```
+Please process .context-engine-init.md
+```
 
 ### Migration Required
 
@@ -62,7 +68,10 @@ Ask Claude: "Please process .context-engine-init.md"
 
 **Command**:
 
-Ask Claude: "Please process .context-engine-init.md"
+Ask Claude:
+```
+Please process .context-engine-init.md
+```
 
 After completing migration steps, re-run initialization.
 
@@ -252,8 +261,10 @@ If discovery produced incorrect results:
 **Why**: Initialization wasn't run, or setup.sh was run directly.
 
 **Solution**:
-```bash
-Ask Claude: "Please process .context-engine-init.md"
+
+Ask Claude:
+```
+Please process .context-engine-init.md
 ```
 
 ---
@@ -264,12 +275,14 @@ Ask Claude: "Please process .context-engine-init.md"
 
 If you manually corrupted configs (copied .example files before running init):
 
+Delete corrupted configs:
 ```bash
-# Delete corrupted configs
 rm config/deployment.yaml config/tag-vocabulary.yaml .claude/commands/ce-capture.md
+```
 
-# Re-run initialization
-# Ask Claude: "Please process .context-engine-init.md"
+Re-run initialization - Ask Claude:
+```
+Please process .context-engine-init.md
 ```
 
 ### Failed Fresh Install

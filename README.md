@@ -123,8 +123,10 @@ tar -xf context-engine-runtime-*.tar
 After installation, open your project in **Claude Code** and follow these steps:
 
 1. **Initialize Context Engine** (discovers project domains):
+
+   Ask Claude:
    ```
-   Ask Claude: "Please process commands/ce-init.md"
+   Please process commands/ce-init.md
    ```
 
    This analyzes your project structure and generates domain-specific configuration.
