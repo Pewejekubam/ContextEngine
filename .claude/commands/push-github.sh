@@ -59,16 +59,21 @@ Distribution release
 Co-Authored-By: Claude <noreply@anthropic.com>"
 fi
 
-# Create version tag
-git tag "v${VERSION}"
+# Create version tag (skip if already exists)
+if ! git tag "v${VERSION}" 2>/dev/null; then
+    echo "Tag v${VERSION} already exists locally"
+fi
 
-# Push to GitHub with tags
-if ! git push github main --tags; then
+# Push to GitHub (code changes only, tags separately)
+if ! git push github main; then
     # Try rebase if push rejected
     git fetch github
     git rebase github/main
-    git push github main --tags
+    git push github main
 fi
+
+# Push tag separately (allow existing tags)
+git push github "v${VERSION}" 2>/dev/null || echo "Tag v${VERSION} already on remote"
 
 # Create GitHub release
 if command -v gh >/dev/null 2>&1; then
