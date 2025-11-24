@@ -427,6 +427,15 @@ EOF
 
   echo ""
 
+  # INIT-167 through INIT-169: Create required directories FIRST (before database creation)
+  echo "Creating directories..."
+
+  mkdir -p "$CE_DIR/data/chatlogs"
+  mkdir -p "$PROJECT_ROOT/.claude/commands"
+
+  echo -e "${GREEN}✓${NC} All directories created"
+  echo ""
+
   # INIT-161 through INIT-166: Create database if it doesn't exist
   local DB_PATH="$CE_DIR/data/rules.db"
   local SCHEMA_PATH="$CE_DIR/schema/schema.sql"
@@ -477,15 +486,8 @@ EOF
     fi
   fi
 
-  # INIT-167 through INIT-169: Create required directories
-  echo "Creating directories..."
-
-  mkdir -p "$CE_DIR/data/chatlogs"
-  mkdir -p "$PROJECT_ROOT/.claude/commands"
-
-  echo -e "${GREEN}✓${NC} All directories created"
-
   # INIT-170, INIT-171: Create symlinks for ce-* slash commands (not copies)
+  # Note: Directories already created earlier (INIT-167 through INIT-169)
   echo ""
   echo "Installing slash commands..."
 

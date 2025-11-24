@@ -1,28 +1,3 @@
-# TEMPLATE_METADATA
-# Template: runtime-template-tag-optimization
-# Version: v1.1.0
-# Updated: 2025-10-27
-# Variables:
-#   - rule_id: Rule identifier (e.g., ADR-001)
-#   - rule_type: Rule category (decisions|constraints|invariants)
-#   - title: Rule topic/title
-#   - description: Full rule description text
-#   - domain: Rule domain tag
-#   - tags: Current tag array (JSON format)
-#   - tier_1_domains: Comma-separated list of valid domain tags
-#   - tier_2_tags: YAML formatted tag groups by domain
-#   - vocabulary_mappings: Dictionary mapping raw words to canonical tags
-#   - synonyms: Grouped synonym lists
-#   - forbidden_stopwords: Regex patterns for forbidden tags
-#   - session_context: Session metadata and context
-#
-# Changelog:
-# - v1.2.1 (2025-11-16): Added reusability guidance - encourage tags that apply to multiple rules
-# - v1.2.0 (2025-11-16): Added bootstrap mode for empty vocabulary domains
-# - v1.1.0 (2025-10-27): Added vocabulary-aware prompting
-# - v1.0.0 (2025-10-20): Initial prompt template
-# END_TEMPLATE_METADATA
-
 Optimize tags for this rule using the vocabulary provided.
 
 Rule ID: {rule_id}

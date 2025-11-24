@@ -16,14 +16,13 @@ engineering decisions, constraints, and architectural knowledge across projects.
 
 1. Extract the distribution:
    ```bash
-   tar -xzf context-engine-runtime-v3.2.0.tar.gz
+   tar -xzf context-engine-runtime-v3.3.0.tar.gz
    cd .context-engine
    ```
 
 2. **First-time initialization** (discovers project-specific domains):
-   ```bash
+
    Ask Claude: "Please process .context-engine-init.md"
-   ```
 
    The initialization prompt will:
    - Detect installation state (fresh install, upgrade, or migration)

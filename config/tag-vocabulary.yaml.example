@@ -15,6 +15,9 @@
 schema_version: "2.0.0"
 
 # Tier 1: High-level domains (dict format with descriptions and aliases)
+# Domain names must contain only lowercase letters, numbers, and underscores
+# Valid: qbd, gnucash, data_model
+# Invalid: data-model, Data.Model, api[v2]
 tier_1_domains:
   __DOMAIN_1__:
     description: "Stub domain placeholder - replaced during initialization"

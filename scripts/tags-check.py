@@ -2,12 +2,13 @@
 """
 Pre-commit vocabulary health check (untagged count, typo detection, schema validation, exit codes)
 
-Implements constraints: VOCAB-001 through VOCAB-038
+Implements constraints: VOCAB-030 through VOCAB-034, VOCAB-037, VOCAB-038
 Generated from: specs/modules/runtime-script-vocabulary-curation-v1.2.0.yaml
 """
 
 import sys
 import json
+import sqlite3
 from pathlib import Path
 
 # INV-023: Check Python version
@@ -38,17 +39,60 @@ def load_config():
     return config
 
 
-# ============================================================================
-# RUNTIME-SCRIPT-VOCABULARY-CURATION MODULE IMPLEMENTATION
-# ============================================================================
+def get_database_statistics(db_path):
+    """
+    Query database statistics (VOCAB-038).
 
-import sqlite3
+    Returns:
+        dict with total_rules, tagged_rules, unique_tags
+    """
+    if not db_path.exists():
+        return {
+            'total_rules': 0,
+            'tagged_rules': 0,
+            'unique_tags': 0
+        }
+
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Total rules
+    cursor.execute("SELECT COUNT(*) FROM rules")
+    total_rules = cursor.fetchone()[0]
+
+    # Rules with non-empty tags
+    cursor.execute("SELECT COUNT(*) FROM rules WHERE tags IS NOT NULL AND tags != '[]'")
+    tagged_rules = cursor.fetchone()[0]
+
+    # Unique tags (requires JSON extraction)
+    try:
+        cursor.execute("""
+            SELECT COUNT(DISTINCT json_each.value)
+            FROM rules, json_each(rules.tags)
+            WHERE rules.tags IS NOT NULL AND rules.tags != '[]'
+        """)
+        unique_tags = cursor.fetchone()[0]
+    except sqlite3.OperationalError:
+        unique_tags = 0
+
+    conn.close()
+
+    return {
+        'total_rules': total_rules,
+        'tagged_rules': tagged_rules,
+        'unique_tags': unique_tags
+    }
 
 
 def levenshtein_distance(s1, s2):
-    """Calculate Levenshtein (edit) distance between two strings."""
+    """
+    Calculate Levenshtein edit distance between two strings.
+
+    Used for VOCAB-031 typo detection (edit distance = 1).
+    """
     if len(s1) < len(s2):
         return levenshtein_distance(s2, s1)
+
     if len(s2) == 0:
         return len(s1)
 
@@ -65,101 +109,110 @@ def levenshtein_distance(s1, s2):
     return previous_row[-1]
 
 
-def get_database_statistics(db_path):
-    """Query database statistics."""
-    if not db_path.exists():
-        return {
-            'total_rules': 0,
-            'untagged_count': 0,
-            'unique_tags': 0
-        }
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    try:
-        # Total rules
-        cursor.execute("SELECT COUNT(*) FROM rules")
-        total_rules = cursor.fetchone()[0]
-
-        # Untagged rules (VOCAB-030)
-        cursor.execute("SELECT COUNT(*) FROM rules WHERE tags_state = 'needs_tags'")
-        untagged_count = cursor.fetchone()[0]
-
-        # Unique tags
-        try:
-            cursor.execute("""
-                SELECT COUNT(DISTINCT json_each.value)
-                FROM rules, json_each(rules.tags)
-                WHERE rules.tags IS NOT NULL AND rules.tags != '[]'
-            """)
-            unique_tags = cursor.fetchone()[0]
-        except sqlite3.OperationalError:
-            unique_tags = 0
-
-        return {
-            'total_rules': total_rules,
-            'untagged_count': untagged_count,
-            'unique_tags': unique_tags
-        }
-    except sqlite3.OperationalError:
-        # Table doesn't exist
-        return {
-            'total_rules': 0,
-            'untagged_count': 0,
-            'unique_tags': 0
-        }
-    finally:
-        conn.close()
-
-
 def detect_typos(vocab):
-    """VOCAB-031: Detect typos using edit distance = 1."""
+    """
+    Detect typos using edit distance = 1 (VOCAB-031).
+
+    Returns:
+        List of (tag1, tag2, domain) tuples for potential typos
+    """
     typos = []
 
+    # Check within each domain
     for domain, tags in vocab.get('tier_2_tags', {}).items():
+        if not isinstance(tags, list):
+            continue
+
+        # Compare all pairs within domain
         for i, tag1 in enumerate(tags):
             for tag2 in tags[i+1:]:
                 if levenshtein_distance(tag1, tag2) == 1:
-                    typos.append((domain, tag1, tag2))
+                    typos.append((tag1, tag2, domain))
 
     return typos
 
 
-def validate_vocabulary_schema(vocab):
-    """VOCAB-033: Validate vocabulary schema structure."""
-    issues = {
+def check_untagged_count(db_path):
+    """
+    Count untagged rules (VOCAB-030).
+
+    Returns:
+        int: Count of rules with tags_state = 'needs_tags'
+    """
+    if not db_path.exists():
+        return 0
+
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM rules WHERE tags_state = 'needs_tags'")
+    count = cursor.fetchone()[0]
+
+    conn.close()
+    return count
+
+
+def validate_vocabulary_schema(vocab, vocab_path):
+    """
+    Validate vocabulary schema for tier_1/tier_2 consistency (VOCAB-033).
+
+    Returns:
+        dict with validation results
+    """
+    results = {
         'tier1_valid': False,
         'tier2_valid': False,
+        'no_phantoms': False,
+        'all_have_entry': False,
         'phantom_domains': [],
         'missing_tier2': [],
-        'all_have_entry': False,
-        'no_phantoms': False
+        'auto_fixed': False
     }
 
     # Check tier_1_domains is dict
-    tier1 = vocab.get('tier_1_domains', {})
-    issues['tier1_valid'] = isinstance(tier1, dict)
+    tier1 = vocab.get('tier_1_domains')
+    results['tier1_valid'] = isinstance(tier1, dict)
 
     # Check tier_2_tags is dict
-    tier2 = vocab.get('tier_2_tags', {})
-    issues['tier2_valid'] = isinstance(tier2, dict)
+    tier2 = vocab.get('tier_2_tags')
+    results['tier2_valid'] = isinstance(tier2, dict)
 
-    if not issues['tier1_valid'] or not issues['tier2_valid']:
-        return issues
+    if not results['tier1_valid'] or not results['tier2_valid']:
+        return results
 
-    # VOCAB-033a: Phantom domain detection
+    # VOCAB-033a: Check for phantom domains (tier_2_tags keys not in tier_1_domains)
     tier1_keys = set(tier1.keys())
     tier2_keys = set(tier2.keys())
 
-    issues['phantom_domains'] = sorted(tier2_keys - tier1_keys)
-    issues['no_phantoms'] = len(issues['phantom_domains']) == 0
+    phantom_domains = tier2_keys - tier1_keys
+    results['phantom_domains'] = sorted(phantom_domains)
+    results['no_phantoms'] = len(phantom_domains) == 0
 
-    # VOCAB-033b: Missing tier_2_tags detection
-    issues['missing_tier2'] = sorted(tier1_keys - tier2_keys)
-    issues['all_have_entry'] = len(issues['missing_tier2']) == 0
+    # VOCAB-033b: Check for missing tier_2_tags entries (tier_1_domains without tier_2_tags)
+    missing_tier2 = tier1_keys - tier2_keys
+    results['missing_tier2'] = sorted(missing_tier2)
+    results['all_have_entry'] = len(missing_tier2) == 0
 
-    return issues
+    # Auto-fix missing tier_2_tags entries
+    if len(missing_tier2) > 0:
+        for domain in missing_tier2:
+            vocab['tier_2_tags'][domain] = []
+
+        # Save updated vocabulary
+        with open(vocab_path, 'w') as f:
+            yaml.dump(
+                vocab,
+                f,
+                default_flow_style=False,
+                sort_keys=False,
+                indent=2,
+                allow_unicode=True
+            )
+
+        results['auto_fixed'] = True
+        results['all_have_entry'] = True
+
+    return results
 
 
 def main():
@@ -175,8 +228,8 @@ def main():
         sys.exit(1)
 
     # Get paths
-    vocab_path = BASE_DIR / "config" / "tag-vocabulary.yaml"
     db_path = BASE_DIR / "data" / "rules.db"
+    vocab_path = BASE_DIR / "config" / "tag-vocabulary.yaml"
 
     # Load vocabulary
     try:
@@ -186,79 +239,69 @@ def main():
         print(f"Error loading vocabulary: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # VOCAB-033: Validate schema structure
-    schema_issues = validate_vocabulary_schema(vocab)
-
-    # Get database statistics
+    # VOCAB-038: Get database statistics
     stats = get_database_statistics(db_path)
+
+    # VOCAB-033: Validate vocabulary schema
+    schema_validation = validate_vocabulary_schema(vocab, vocab_path)
+
+    # VOCAB-030: Check untagged count
+    untagged_count = check_untagged_count(db_path)
 
     # VOCAB-031: Detect typos
     typos = detect_typos(vocab)
+    typo_count = len(typos)
 
     # VOCAB-037: Report schema validation results explicitly
     print("\nSchema Validation:")
-    print(f"  {'✓' if schema_issues['tier1_valid'] else '✗'} tier_1_domains is dict: {schema_issues['tier1_valid']}")
-    print(f"  {'✓' if schema_issues['tier2_valid'] else '✗'} tier_2_tags is dict: {schema_issues['tier2_valid']}")
-    print(f"  {'✓' if schema_issues['no_phantoms'] else '✗'} No phantom domains: {schema_issues['no_phantoms']}")
-    print(f"  {'✓' if schema_issues['all_have_entry'] else '✗'} All domains have tier_2_tags entry: {schema_issues['all_have_entry']}")
+    print(f"  {'✓' if schema_validation['tier1_valid'] else '✗'} tier_1_domains is dict: {schema_validation['tier1_valid']}")
+    print(f"  {'✓' if schema_validation['tier2_valid'] else '✗'} tier_2_tags is dict: {schema_validation['tier2_valid']}")
+    print(f"  {'✓' if schema_validation['no_phantoms'] else '✗'} No phantom domains: {schema_validation['no_phantoms']}")
+    print(f"  {'✓' if schema_validation['all_have_entry'] else '✗'} All domains have tier_2_tags entry: {schema_validation['all_have_entry']}")
 
-    print("\nDatabase Statistics:")
+    if schema_validation['auto_fixed']:
+        print(f"\n  ⚠️  Auto-fixed missing tier_2_tags for: {', '.join(schema_validation['missing_tier2'])}")
+
+    print(f"\nDatabase Statistics:")
     print(f"  Total rules: {stats['total_rules']}")
-    print(f"  Untagged rules: {stats['untagged_count']}")
-    print(f"  Typos detected: {len(typos)}")
+    print(f"  Untagged rules: {untagged_count}")
+    print(f"  Typos detected: {typo_count}")
 
-    # VOCAB-033b: Auto-fix missing tier_2_tags entries
-    if len(schema_issues['missing_tier2']) > 0:
-        print(f"\n⚠️  WARNING: Missing tier_2_tags for: {', '.join(schema_issues['missing_tier2'])}")
-        print("Auto-fixing by creating empty entries...")
+    # Show typos if any
+    if typo_count > 0:
+        print(f"\nPotential typos:")
+        for tag1, tag2, domain in typos[:10]:  # Show max 10
+            print(f"  - {domain}: '{tag1}' vs '{tag2}'")
+        if typo_count > 10:
+            print(f"  ... and {typo_count - 10} more")
 
-        for domain in schema_issues['missing_tier2']:
-            vocab['tier_2_tags'][domain] = []
-
-        # Save vocabulary
-        with open(vocab_path, 'w') as f:
-            yaml.dump(
-                vocab,
-                f,
-                default_flow_style=False,
-                sort_keys=False,
-                indent=2,
-                allow_unicode=True
-            )
-        print("✓ Auto-fix complete")
-
-    # Determine exit code and status message
-    has_errors = False
+    # Determine status and exit code
+    has_issues = False
     status_messages = []
 
-    # VOCAB-033a: Phantom domains (ERROR)
-    if len(schema_issues['phantom_domains']) > 0:
-        status_messages.append(f"❌ ERROR: Phantom domains in tier_2_tags: {', '.join(schema_issues['phantom_domains'])}")
-        status_messages.append("   Manually remove phantom entries from config/tag-vocabulary.yaml")
-        has_errors = True
+    # VOCAB-034: Exit code 1 if phantom domains detected
+    if len(schema_validation['phantom_domains']) > 0:
+        status_messages.append(f"❌ FAILED: Phantom domains found: {', '.join(schema_validation['phantom_domains'])}")
+        has_issues = True
+    if untagged_count > 0:
+        status_messages.append(f"⚠️  WARNING: {untagged_count} rules need tags")
+        has_issues = True
+    if typo_count > 0:
+        status_messages.append(f"⚠️  WARNING: {typo_count} potential typos detected")
+        has_issues = True
 
-    # VOCAB-030: Untagged rules (WARNING)
-    if stats['untagged_count'] > 0:
-        status_messages.append(f"⚠️  WARNING: {stats['untagged_count']} rules need tags")
-        has_errors = True
+    if not has_issues:
+        status_messages.append("✓ Vocabulary healthy")
 
-    # VOCAB-031: Typos (WARNING)
-    if len(typos) > 0:
-        status_messages.append(f"⚠️  WARNING: {len(typos)} potential typos detected")
-        for domain, tag1, tag2 in typos[:3]:  # Show first 3
-            status_messages.append(f"   - {domain}: '{tag1}' vs '{tag2}'")
-        if len(typos) > 3:
-            status_messages.append(f"   ... and {len(typos) - 3} more")
-        has_errors = True
+    # Print status messages
+    print("")
+    for msg in status_messages:
+        print(msg)
 
-    # Print status
-    print()
-    if has_errors:
-        for msg in status_messages:
-            print(msg)
+    # VOCAB-032: Exit 0 if healthy, 1 if issues found
+    if has_issues:
         sys.exit(1)
     else:
-        print("✓ Vocabulary healthy")
         sys.exit(0)
 
 

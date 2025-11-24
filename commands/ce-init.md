@@ -178,7 +178,24 @@ Report results to user:
   - Vocabulary: Generated with [N] domains
   - Database: Created
   - Slash commands: Symlinked to .claude/commands/
-  - Next: Use /ce-capture to capture chatlogs
+
+================================================================================
+⚠️  IMPORTANT: Stop here and start fresh!
+================================================================================
+
+This session contains Context Engine INSTALLATION details, not your project
+architecture. Capturing this conversation will contaminate your knowledge base
+with CE-internal implementation details.
+
+CORRECT WORKFLOW:
+1. Exit this session NOW
+2. Start a NEW Claude session
+3. Work on your project (coding, debugging, planning)
+4. THEN run /ce-capture to capture architectural decisions
+
+Do NOT capture this installation conversation.
+
+================================================================================
 ```
 
 **Upgrade**:
@@ -188,7 +205,24 @@ Report results to user:
   - Vocabulary: Preserved
   - Database: Preserved
   - Slash commands: Symlinks verified
-  - Next: Continue using existing workflows
+
+================================================================================
+⚠️  IMPORTANT: Stop here and start fresh!
+================================================================================
+
+This session contains Context Engine UPGRADE details, not your project work.
+Capturing this conversation will contaminate your knowledge base with CE
+maintenance operations.
+
+CORRECT WORKFLOW:
+1. Exit this session NOW
+2. Start a NEW Claude session
+3. Work on your project
+4. THEN run /ce-capture when you have architectural decisions to preserve
+
+Do NOT capture this installation conversation.
+
+================================================================================
 ```
 
 ---

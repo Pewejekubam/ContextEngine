@@ -41,9 +41,8 @@ The initialization prompt handles upgrades automatically:
    ```
 
 2. Run initialization (detects upgrade automatically):
-   ```bash
+
    Ask Claude: "Please process .context-engine-init.md"
-   ```
 
    The prompt will:
    - Detect existing deployment.yaml (upgrade mode)

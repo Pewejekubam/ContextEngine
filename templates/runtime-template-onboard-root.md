@@ -18,9 +18,32 @@ rules_extracted_from: ${chatlog_count} chatlogs (latest: ${latest_chatlog_date})
 
 ${project_summary}
 
+## Getting Started
+
+### Essential Commands
+${essential_commands}
+
+### Key Directories
+${key_directories}
+
+### Understanding Rules
+${rule_type_legend}
+
 ## Rules by Domain
 
 ${domain_sections}
+
+---
+
+## Onboarding Checklist
+
+Before making changes:
+- [ ] Read this file completely
+- [ ] Understand the primary architectural decisions (ADRs)
+- [ ] Review critical constraints (CONs) for your work area
+- [ ] Check system invariants (INVs) to avoid violations
+- [ ] Locate implementation code for relevant rules
+- [ ] Verify understanding with teammate or by testing
 
 ---
 

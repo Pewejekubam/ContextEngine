@@ -2,13 +2,6 @@
 
 > HITL workflow for overriding default salience values
 
-<!-- TEMPLATE_METADATA
-Template: runtime-template-mark-salience
-Version: v1.0.0
-Updated: 2025-11-01
-Variables: []
-Implements: Spec 27 SAL-004, SAL-005, SAL-006
-END_TEMPLATE_METADATA -->
 
 ## Usage
 

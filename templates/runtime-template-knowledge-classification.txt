@@ -1,4 +1,3 @@
-
 Classify this software engineering rule into five knowledge types. Assign weights (sum=1.0):
 
 **Rule**: {rule_id} ({rule_type})

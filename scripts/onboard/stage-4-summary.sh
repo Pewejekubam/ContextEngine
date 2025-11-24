@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 4: Summarize Project Status
+# Stage 4: Summarize Project Status (v2.3.0)
 # Constraints: ONB-041, ONB-042, ONB-044, ONB-066
 
 set -e

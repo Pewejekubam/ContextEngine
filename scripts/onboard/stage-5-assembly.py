@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Stage 5: Assemble Final Onboard Artifact
+Stage 5: Assemble Final Onboard Artifact (v2.3.0)
 Merges selections into onboard-root.yaml using domain-indexed template
 
 Constraints: ONB-042, ONB-043, ONB-045 to ONB-047, ONB-053 to ONB-055, ONB-064,
-             ONB-070, ONB-070a, ONB-070b, ONB-071, ONB-071a, ONB-072, ONB-073, ONB-073a
+             ONB-070, ONB-070a, ONB-070b, ONB-071, ONB-071a, ONB-072, ONB-073, ONB-073a,
+             RREL-007, RREL-007a, RREL-007b, RREL-007c (Spec 73 Phase 3)
+
+v2.3.0: Added relationship cross-references and implementation reference extraction
+v2.2.1: Fixed primary domain assignment to use rule['domain'] field
+v2.2.0: Implemented domain-indexed output structure with navigation anchors
 """
 
 import sqlite3
@@ -238,14 +243,91 @@ if len(all_rule_ids) > 0:
 else:
     rules_data = {}
 
-conn.close()
+# Note: Keep connection open for RREL-007 relationship queries during rendering
+# Connection will be closed after domain sections are rendered
 
 print(f"  - Rules fetched from database: {len(rules_data)}")
 
 
-def render_rule_entry(rule):
+def get_rule_relationships(conn, rule_id, all_rules_dict):
+    """
+    RREL-007: Query forward relationships where this rule is the target.
+
+    Searches all rules for relationships pointing to the given rule_id.
+    Groups relationships by type: implements, extends, conflicts_with, related_to.
+
+    Args:
+        conn: Database connection
+        rule_id: Target rule ID to find relationships for
+        all_rules_dict: Dict of all curated rules {rule_id: rule_data}
+
+    Returns:
+        Dict with keys for each relationship type, values are lists of {id, title} dicts
+    """
+    relationships = {
+        'implements': [],
+        'extends': [],
+        'conflicts_with': [],
+        'related_to': []
+    }
+
+    # Search through all curated rules for relationships
+    for other_rule_id, other_rule in all_rules_dict.items():
+        if other_rule_id == rule_id:
+            continue  # Skip self
+
+        metadata = other_rule.get('metadata', {})
+        rule_relationships = metadata.get('relationships', [])
+
+        # Check each relationship
+        for rel in rule_relationships:
+            if rel.get('target') == rule_id:
+                rel_type = rel.get('type', '')
+                if rel_type in relationships:
+                    relationships[rel_type].append({
+                        'id': other_rule_id,
+                        'title': other_rule.get('title', 'Untitled')
+                    })
+
+    return relationships
+
+
+def get_implementation_refs(metadata):
+    """
+    RREL-007b: Extract implementation_refs from rules.metadata.
+
+    Categorizes refs by type: implements (code), validates (tests), documents (docs).
+
+    Args:
+        metadata: Rule metadata dict
+
+    Returns:
+        Dict with keys 'code', 'tests', 'docs', values are lists of ref dicts
+    """
+    implementation_refs = metadata.get('implementation_refs', [])
+
+    categorized = {
+        'code': [],
+        'tests': [],
+        'docs': []
+    }
+
+    for ref in implementation_refs:
+        ref_type = ref.get('type', '')
+        if ref_type == 'implements':
+            categorized['code'].append(ref)
+        elif ref_type == 'validates':
+            categorized['tests'].append(ref)
+        elif ref_type == 'documents':
+            categorized['docs'].append(ref)
+
+    return categorized
+
+
+def render_rule_entry(rule, conn, all_rules_dict):
     """
     ONB-073: Render single rule with full metadata
+    RREL-007, RREL-007a, RREL-007b, RREL-007c: Add optional relationship cross-references and code pointers
     """
     tags_str = ", ".join(rule.get('tags', []))
     description = rule.get('description', '')
@@ -275,6 +357,57 @@ def render_rule_entry(rule):
 - Composite Score: {rule.get('composite_score', 0):.3f}
 """
 
+    # RREL-007, RREL-007a: Optional relationship cross-references
+    relationships = get_rule_relationships(conn, rule['id'], all_rules_dict)
+
+    if relationships['implements']:
+        entry += "\n**Implemented by**:\n"
+        for impl in relationships['implements']:
+            entry += f"- {impl['id']}: {impl['title']}\n"
+
+    if relationships['extends']:
+        entry += "\n**Extended by**:\n"
+        for ext in relationships['extends']:
+            entry += f"- {ext['id']}: {ext['title']}\n"
+
+    if relationships['conflicts_with']:
+        entry += "\n**Conflicts with**:\n"
+        for conf in relationships['conflicts_with']:
+            entry += f"- {conf['id']}: {conf['title']}\n"
+
+    if relationships['related_to']:
+        entry += "\n**Related decisions**:\n"
+        for rel in relationships['related_to']:
+            entry += f"- {rel['id']}: {rel['title']}\n"
+
+    # RREL-007b, RREL-007c: Optional implementation reference sections
+    metadata = rule.get('metadata', {})
+    impl_refs = get_implementation_refs(metadata)
+
+    if impl_refs['code']:
+        entry += "\n**Implementation: Code**:\n"
+        for ref in impl_refs['code']:
+            file_path = ref.get('file', '')
+            line_range = f" (lines {ref['lines']})" if 'lines' in ref else ""
+            role_desc = f": {ref['role']}" if ref.get('role') else ""
+            entry += f"- {file_path}{line_range}{role_desc}\n"
+
+    if impl_refs['tests']:
+        entry += "\n**Implementation: Tests**:\n"
+        for ref in impl_refs['tests']:
+            file_path = ref.get('file', '')
+            line_range = f" (lines {ref['lines']})" if 'lines' in ref else ""
+            role_desc = f": {ref['role']}" if ref.get('role') else ""
+            entry += f"- {file_path}{line_range}{role_desc}\n"
+
+    if impl_refs['docs']:
+        entry += "\n**Implementation: Docs**:\n"
+        for ref in impl_refs['docs']:
+            file_path = ref.get('file', '')
+            line_range = f" (lines {ref['lines']})" if 'lines' in ref else ""
+            role_desc = f": {ref['role']}" if ref.get('role') else ""
+            entry += f"- {file_path}{line_range}{role_desc}\n"
+
     return entry
 
 
@@ -295,10 +428,11 @@ def get_primary_domain(rule, tier_1_domains, domain_avg_scores):
     return None
 
 
-def render_domain_sections(domain_groups, vocabulary):
+def render_domain_sections(domain_groups, vocabulary, conn, all_rules_dict):
     """
     ONB-072, ONB-073: Render domain-indexed sections with navigation anchors
     ONB-071: Skip empty domains (no placeholder sections)
+    RREL-007: Pass conn and all_rules_dict for relationship queries
     """
     sections = []
 
@@ -316,9 +450,9 @@ def render_domain_sections(domain_groups, vocabulary):
         if 'description' in domain_data:
             section += f"*{domain_data['description']}*\n\n"
 
-        # ONB-073: Render each rule in domain
+        # ONB-073, RREL-007: Render each rule in domain with relationships and code pointers
         for rule in rules:
-            section += render_rule_entry(rule)
+            section += render_rule_entry(rule, conn, all_rules_dict)
             section += "\n---\n\n"
 
         sections.append(section)
@@ -416,8 +550,11 @@ if git_state_file.exists():
     except (json.JSONDecodeError, KeyError, ValueError):
         pass  # Use defaults
 
-# ONB-072, ONB-073: Render domain-indexed sections
-domain_sections = render_domain_sections(domain_groups, vocabulary)
+# ONB-072, ONB-073, RREL-007: Render domain-indexed sections with relationships
+domain_sections = render_domain_sections(domain_groups, vocabulary, conn, rules_data)
+
+# RREL-007: Close database connection after rendering (kept open for relationship queries)
+conn.close()
 
 # ONB-042: Variable substitution for ${variable} format
 template = template.replace("${version}", version)

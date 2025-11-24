@@ -11,8 +11,8 @@ import json
 import sqlite3
 import subprocess
 import tempfile
-import re
 import argparse
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -49,7 +49,6 @@ def load_config():
 # ============================================================================
 
 # KT-001: Five software-native knowledge types
-# KT-001a: Weight distribution 0.0-1.0 for all five types, sum=1.0 (validated in validate_weights)
 KNOWLEDGE_TYPES = ['reference', 'procedure', 'decision', 'incident', 'pattern']
 
 # KT-004d: Fallback values
@@ -62,13 +61,10 @@ FALLBACK_WEIGHTS = {
 }
 
 # KT-002c: Prompt template version
-PROMPT_VERSION = 'v1.0.0'
+PROMPT_VERSION = "v1.0.0"
 
-# KT-010a: Default Claude CLI model
-DEFAULT_MODEL = 'claude-sonnet-4-5-20250929'
-
-# KT-040: Error log file path
-ERROR_LOG_PATH = BASE_DIR / "data" / "classification_errors.log"
+# KT-010c: Timeout per classification (seconds)
+CLAUDE_TIMEOUT = 120
 
 # KT-042: Error types
 ERROR_TYPES = {
@@ -80,25 +76,24 @@ ERROR_TYPES = {
 }
 
 
-def log_error(rule_id: str, error_type: str, details: str):
-    """
-    KT-004e, KT-041: Log error in TSV format
-    KT-004f: Passive telemetry for human review, not consumed by automated workflows
-    KT-044: Append-only, no rotation (user manages log size)
-    Format: {timestamp}\t{rule_id}\t{error_type}\t{details}
-    """
-    timestamp = datetime.now(timezone.utc).isoformat()
-    ERROR_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(ERROR_LOG_PATH, 'a') as f:
+def log_error(error_log_path: Path, rule_id: str, error_type: str, details: str):
+    """KT-041: Log error in TSV format"""
+    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    error_log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(error_log_path, 'a') as f:
         f.write(f"{timestamp}\t{rule_id}\t{error_type}\t{details}\n")
 
 
+def log_normalization(error_log_path: Path, rule_id: str, original_sum: float):
+    """KT-005c: Log normalization event"""
+    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    error_log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(error_log_path, 'a') as f:
+        f.write(f"{timestamp}\t{rule_id}\tNORMALIZED\toriginal_sum={original_sum:.4f} → 1.0\n")
+
+
 def normalize_weights(weights: dict) -> dict:
-    """
-    KT-005: Normalization algorithm
-    KT-005b: Normalization guarantee - after normalization, sum = 1.0
-    normalized_weight[type] = weight[type] / sum(weights)
-    """
+    """KT-005: Normalize weights to sum to 1.0"""
     total = sum(weights.values())
     if total == 0:
         return FALLBACK_WEIGHTS.copy()
@@ -107,106 +102,102 @@ def normalize_weights(weights: dict) -> dict:
     return normalized
 
 
-def validate_weights(weights: dict, rule_id: str) -> tuple[bool, dict]:
+def validate_weights(weights: dict, rule_id: str, error_log_path: Path) -> tuple[dict, bool]:
     """
     KT-004: Three-stage validation
-    Returns: (success, weights_to_use)
+    Returns: (final_weights, had_error)
     """
-    # Stage 1: JSON already parsed by caller
+    # Stage 1: Already validated by JSON parsing in caller
 
-    # Stage 2: KT-004b - All five keys present
-    if not all(k in weights for k in KNOWLEDGE_TYPES):
-        log_error(rule_id, ERROR_TYPES['MISSING_KEYS'],
-                 f"Missing keys: {set(KNOWLEDGE_TYPES) - set(weights.keys())}")
-        return False, FALLBACK_WEIGHTS.copy()
+    # Stage 2: KT-004b - Check all five keys present
+    missing_keys = set(KNOWLEDGE_TYPES) - set(weights.keys())
+    if missing_keys:
+        log_error(error_log_path, rule_id, ERROR_TYPES['MISSING_KEYS'],
+                  f"Missing keys: {', '.join(missing_keys)}")
+        return FALLBACK_WEIGHTS.copy(), True
 
-    # Stage 3: KT-004c, KT-005a - Weights sum within 0.95-1.05
-    total = sum(weights[k] for k in KNOWLEDGE_TYPES)
-    if total < 0.95 or total > 1.05:
+    # Stage 3: KT-004c, KT-005a - Check weight sum
+    weight_sum = sum(weights.values())
+    if weight_sum < 0.95 or weight_sum > 1.05:
         # Attempt normalization
+        original_sum = weight_sum
         try:
             normalized = normalize_weights(weights)
-            # KT-005c: Log normalization
-            log_error(rule_id, 'NORMALIZED', f"original_sum={total:.4f} → 1.0")
-            return True, normalized
+            log_normalization(error_log_path, rule_id, original_sum)
+            return normalized, False
         except Exception as e:
-            log_error(rule_id, ERROR_TYPES['WEIGHT_SUM_ERROR'],
-                     f"sum={total:.4f}, normalization failed: {e}")
-            return False, FALLBACK_WEIGHTS.copy()
+            log_error(error_log_path, rule_id, ERROR_TYPES['WEIGHT_SUM_ERROR'],
+                      f"sum={weight_sum:.4f}, normalization failed: {str(e)}")
+            return FALLBACK_WEIGHTS.copy(), True
 
-    return True, weights
+    return weights, False
 
 
 def extract_json_from_markdown(text: str) -> str:
-    """
-    KT-010f: Extract JSON from markdown code blocks
-    Handles cases where Claude CLI returns conversational response with JSON in code block
-    """
+    """KT-010f: Extract JSON from markdown code blocks"""
     # Try to find JSON in code blocks
-    json_pattern = r'```(?:json)?\s*(\{[^`]+\})\s*```'
-    matches = re.findall(json_pattern, text, re.DOTALL)
-    if matches:
-        return matches[0]
+    json_block_pattern = r'```(?:json)?\s*(\{[^`]+\})\s*```'
+    match = re.search(json_block_pattern, text, re.DOTALL)
+    if match:
+        return match.group(1)
 
-    # Try to find raw JSON
-    json_pattern = r'(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})'
-    matches = re.findall(json_pattern, text, re.DOTALL)
-    if matches:
-        # Return the first valid-looking JSON object
-        for match in matches:
-            try:
-                json.loads(match)
-                return match
-            except:
-                continue
+    # Try to find raw JSON object
+    json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+    match = re.search(json_pattern, text, re.DOTALL)
+    if match:
+        return match.group(0)
 
     return text
 
 
-def classify_rule_with_claude(rule_id: str, rule_type: str, title: str,
-                               description: str, domain: str, template_path: Path) -> dict:
+def classify_with_claude(rule: dict, template_path: Path, error_log_path: Path) -> tuple[dict, bool]:
     """
-    KT-010: Claude CLI invocation with timeout and fallback
-    Returns: (success, weights, model_id)
+    KT-010: Classify rule using Claude CLI
+    Returns: (weights, had_error)
     """
-    # KT-002, KT-002a, KT-002b: Load and populate template
-    # Template content defined in runtime-template-knowledge-classification.txt
-    with open(template_path) as f:
-        template = f.read()
+    rule_id = rule['id']
 
-    prompt = template.format(
-        rule_id=rule_id,
-        rule_type=rule_type,
-        title=title,
-        description=description or "(no description)",
-        domain=domain or "(no domain)"
+    # KT-002a: Load and substitute template variables
+    try:
+        with open(template_path) as f:
+            prompt_template = f.read()
+    except Exception as e:
+        log_error(error_log_path, rule_id, ERROR_TYPES['CLAUDE_CLI_ERROR'],
+                  f"Failed to load template: {str(e)}")
+        return FALLBACK_WEIGHTS.copy(), True
+
+    # Substitute variables
+    prompt = prompt_template.format(
+        rule_id=rule['id'],
+        rule_type=rule['type'],
+        title=rule['title'],
+        description=rule['description'] or '',
+        domain=rule['domain'] or ''
     )
 
-    # KT-010: Create temporary prompt file
+    # KT-010: Create temporary prompt file and invoke Claude CLI
     temp_prompt = None
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            temp_prompt = Path(f.name)
-            f.write(prompt)
+        # Create temp file
+        temp_prompt = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+        temp_prompt.write(prompt)
+        temp_prompt.close()
 
-        # KT-010: Claude CLI invocation with stdin redirection
-        # KT-010b: Accept default temperature (no override)
-        # KT-010c: 120 second timeout
-        # KT-010d: Single attempt only, no retries
+        # KT-010: Invoke Claude CLI with timeout
         result = subprocess.run(
             ['claude', '--print'],
-            stdin=open(temp_prompt),
+            stdin=open(temp_prompt.name),
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=CLAUDE_TIMEOUT
         )
 
         if result.returncode != 0:
-            log_error(rule_id, ERROR_TYPES['CLAUDE_CLI_ERROR'],
-                     f"Exit code {result.returncode}: {result.stderr}")
-            return False, FALLBACK_WEIGHTS.copy(), None
+            log_error(error_log_path, rule_id, ERROR_TYPES['CLAUDE_CLI_ERROR'],
+                      f"Exit code {result.returncode}: {result.stderr[:200]}")
+            return FALLBACK_WEIGHTS.copy(), True
 
-        # KT-010f: Extract JSON from markdown if needed
+        # KT-010f: Extract JSON from response (may be wrapped in markdown)
         response_text = result.stdout.strip()
         json_text = extract_json_from_markdown(response_text)
 
@@ -214,109 +205,69 @@ def classify_rule_with_claude(rule_id: str, rule_type: str, title: str,
         try:
             weights = json.loads(json_text)
         except json.JSONDecodeError as e:
-            log_error(rule_id, ERROR_TYPES['JSON_PARSE_ERROR'],
-                     f"Failed to parse: {str(e)[:100]}")
-            return False, FALLBACK_WEIGHTS.copy(), None
+            log_error(error_log_path, rule_id, ERROR_TYPES['JSON_PARSE_ERROR'],
+                      f"JSON decode failed: {str(e)}, response: {response_text[:200]}")
+            return FALLBACK_WEIGHTS.copy(), True
 
         # KT-004: Validate weights
-        success, validated_weights = validate_weights(weights, rule_id)
-
-        # KT-010a: Return default model
-        return success, validated_weights, DEFAULT_MODEL
+        validated_weights, had_error = validate_weights(weights, rule_id, error_log_path)
+        return validated_weights, had_error
 
     except subprocess.TimeoutExpired:
-        log_error(rule_id, ERROR_TYPES['TIMEOUT'], "Claude CLI timeout after 120s")
-        return False, FALLBACK_WEIGHTS.copy(), None
+        log_error(error_log_path, rule_id, ERROR_TYPES['TIMEOUT'],
+                  f"Classification timed out after {CLAUDE_TIMEOUT}s")
+        return FALLBACK_WEIGHTS.copy(), True
+
     except Exception as e:
-        log_error(rule_id, ERROR_TYPES['CLAUDE_CLI_ERROR'], str(e))
-        return False, FALLBACK_WEIGHTS.copy(), None
+        log_error(error_log_path, rule_id, ERROR_TYPES['CLAUDE_CLI_ERROR'],
+                  f"Unexpected error: {str(e)}")
+        return FALLBACK_WEIGHTS.copy(), True
+
     finally:
         # KT-010e: Cleanup temporary prompt file
-        if temp_prompt and temp_prompt.exists():
-            temp_prompt.unlink()
+        if temp_prompt and Path(temp_prompt.name).exists():
+            Path(temp_prompt.name).unlink()
 
 
-def update_rule_metadata(conn: sqlite3.Connection, rule_id: str, weights: dict,
-                         classification_method: str, model_id: str = None):
+def get_top_types(weights: dict, n: int = 3) -> str:
+    """KT-020e: Format top N types with weights for progress reporting"""
+    sorted_types = sorted(weights.items(), key=lambda x: x[1], reverse=True)
+    top_n = sorted_types[:n]
+    return ', '.join([f"{t}={w:.2f}" for t, w in top_n])
+
+
+def update_rule_metadata(db_path: Path, rule_id: str, weights: dict, model_id: str = None):
     """
-    KT-003: Classification stored in rules.metadata JSON column under knowledge_type key
-    KT-030: Update metadata with json_patch
-    KT-030a: JSON merge logic using json_patch()
-    KT-030b: No explicit transactions, single UPDATE per rule (autocommit enabled)
-    KT-003a: Metadata structure with provenance
+    KT-030: Update rule metadata with classification
+    KT-003a: Metadata structure with provenance tracking
     """
-    # KT-007: Classification metadata fields with ISO 8601 UTC timestamp
-    classified_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    metadata_patch = {
+    # KT-007: Classification metadata fields
+    classification_data = {
         'knowledge_type': weights,
-        'classification_method': classification_method,
-        'classification_model': model_id,
+        'classification_method': 'llm',
+        'classification_model': model_id or 'claude-sonnet-4-5-20250929',
         'classification_prompt_version': PROMPT_VERSION,
-        'classified_at': classified_at
+        'classified_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     }
 
-    # KT-030: Use json_patch to merge into existing metadata
-    # KT-030c: COALESCE handles NULL metadata
-    patch_json = json.dumps(metadata_patch)
-
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE rules SET metadata = json_patch(COALESCE(metadata, '{}'), ?) WHERE id = ?",
-        (patch_json, rule_id)
-    )
-    # KT-020d: Commit after each successful classification
-    conn.commit()
-
-
-def format_top_types(weights: dict, n=3) -> str:
-    """
-    KT-020e: Format top N types with weights for progress reporting
-    """
-    sorted_types = sorted(weights.items(), key=lambda x: x[1], reverse=True)
-    return ", ".join(f"{t}={w:.2f}" for t, w in sorted_types[:n])
-
-
-def main():
-    """LLM-based knowledge type classification with validation and fallback"""
-    # Parse arguments
-    parser = argparse.ArgumentParser(
-        description='Classify rules by knowledge type using Claude CLI'
-    )
-    # KT-020c: Optional limit flag
-    parser.add_argument('--limit', type=int, default=None,
-                       help='Limit number of rules to classify (for testing)')
-    args = parser.parse_args()
-
-    print("Context Engine - Knowledge Classifier")
-    print("="*70)
-
-    # Load configuration
+    conn = sqlite3.connect(db_path)
     try:
-        config = load_config()
-    except Exception as e:
-        print(f"Error loading configuration: {e}", file=sys.stderr)
-        return 1
+        # KT-030: Use json_patch to merge into existing metadata
+        patch_json = json.dumps(classification_data)
+        conn.execute(
+            "UPDATE rules SET metadata = json_patch(COALESCE(metadata, '{}'), ?) WHERE id = ?",
+            (patch_json, rule_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
-    # Get database path from config
-    db_path = PROJECT_ROOT / "data" / "rules.db"
-    if not db_path.exists():
-        print(f"Error: Database not found at {db_path}", file=sys.stderr)
-        return 1
 
-    # KT-002: Template path
-    template_path = BASE_DIR / "templates" / "runtime-template-knowledge-classification.txt"
-    if not template_path.exists():
-        print(f"Error: Template not found at {template_path}", file=sys.stderr)
-        return 1
-
-    # Connect to database
-    conn = sqlite3.Connection(db_path)
+def get_unclassified_rules(db_path: Path, limit: int = None) -> list[dict]:
+    """KT-020a: Select unclassified rules"""
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
-    # KT-020a: Target selection query - unclassified rules
-    # KT-003b: Rules with metadata.knowledge_type IS NULL are unclassified
-    # KT-020b: Process ALL unclassified rules by default (no arbitrary limit)
     query = """
         SELECT id, type, title, description, domain, metadata
         FROM rules
@@ -324,66 +275,103 @@ def main():
         ORDER BY created_at DESC
     """
 
-    if args.limit:
-        query += f" LIMIT {args.limit}"
+    if limit:
+        query += f" LIMIT {limit}"
 
-    cursor = conn.cursor()
-    cursor.execute(query)
-    rules = cursor.fetchall()
+    try:
+        cursor = conn.execute(query)
+        rules = [dict(row) for row in cursor.fetchall()]
+        return rules
+    finally:
+        conn.close()
 
+
+def main():
+    """LLM-based knowledge type classification with validation and fallback"""
+    parser = argparse.ArgumentParser(
+        description='Context Engine - Knowledge Type Classifier'
+    )
+    parser.add_argument(
+        '--limit',
+        type=int,
+        help='Limit number of rules to classify (for testing)'
+    )
+    args = parser.parse_args()
+
+    print("Context Engine - Knowledge Type Classifier")
+    print("=" * 70)
+
+    # Load configuration
+    try:
+        config = load_config()
+    except Exception as e:
+        print(f"Error loading configuration: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve paths
+    db_path = PROJECT_ROOT / config['database']['path']
+    template_path = BASE_DIR / "templates" / "runtime-template-knowledge-classification.txt"
+    error_log_path = BASE_DIR / "data" / "classification_errors.log"
+
+    # Verify database exists
+    if not db_path.exists():
+        print(f"Error: Database not found at {db_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Verify template exists
+    if not template_path.exists():
+        print(f"Error: Classification template not found at {template_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # KT-020a: Get unclassified rules
+    print("\nFetching unclassified rules...")
+    rules = get_unclassified_rules(db_path, limit=args.limit)
     total = len(rules)
+
     if total == 0:
         print("No unclassified rules found.")
         return 0
 
-    print(f"Found {total} unclassified rules")
+    print(f"Found {total} unclassified rule(s)")
+
+    if args.limit:
+        print(f"Processing limit: {args.limit}")
+
     print()
 
+    # KT-020: Batch classification
     error_count = 0
 
-    # KT-020: Batch classification mode
-    for idx, rule in enumerate(rules, 1):
+    for idx, rule in enumerate(rules, start=1):
         rule_id = rule['id']
-        rule_type = rule['type']
-        title = rule['title']
-        description = rule['description']
-        domain = rule['domain']
-
-        print(f"[{idx}/{total}] Classifying {rule_id}...", end=' ', flush=True)
 
         # KT-010: Classify with Claude CLI
-        success, weights, model_id = classify_rule_with_claude(
-            rule_id, rule_type, title, description, domain, template_path
-        )
+        weights, had_error = classify_with_claude(rule, template_path, error_log_path)
 
-        # Track errors
-        if not success:
+        if had_error:
             error_count += 1
 
-        # KT-043: All errors trigger fallback, processing continues
-        # Update database with classification (whether success or fallback)
-        classification_method = 'llm' if success else 'llm'  # Both use LLM, fallback just uses default weights
-        update_rule_metadata(conn, rule_id, weights, classification_method, model_id)
+        # KT-030d: Commit after each classification
+        update_rule_metadata(db_path, rule_id, weights)
 
         # KT-020e: Progress reporting
-        top_types = format_top_types(weights)
-        print(f"{top_types}")
-
-    conn.close()
+        top_types = get_top_types(weights)
+        status = "[ERROR - FALLBACK]" if had_error else "[OK]"
+        print(f"{status} {rule_id} ({idx}/{total}) - {top_types}")
 
     print()
-    print("="*70)
-    print("Classification Complete")
-    print(f"Total: {total}")
-    print(f"Successful: {total - error_count}")
+    print("=" * 70)
+    print(f"Classification complete: {total} rules processed")
 
     # KT-045: Error summary report
     if error_count > 0:
         percentage = (error_count / total) * 100
-        print(f"Errors: {error_count}/{total} ({percentage:.1f}%) - see {ERROR_LOG_PATH}")
-
-    # KT-046: Non-zero exit code if any errors
-    return 1 if error_count > 0 else 0
+        print(f"Errors: {error_count}/{total} ({percentage:.1f}%) - see {error_log_path}")
+        # KT-046: Non-zero exit if any errors
+        return 1
+    else:
+        print("All classifications successful (no fallbacks used)")
+        return 0
 
 
 if __name__ == '__main__':

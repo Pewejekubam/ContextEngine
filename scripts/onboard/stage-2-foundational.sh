@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 2: Curate Foundational ADRs
+# Stage 2: Curate Foundational ADRs (v2.3.0)
 # Constraints: ONB-041, ONB-042, ONB-044, ONB-063, ONB-066
 
 set -e

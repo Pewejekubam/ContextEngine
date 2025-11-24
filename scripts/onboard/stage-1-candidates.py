@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Stage 1: Generate Candidates for Onboard Pipeline (v2.1.0)
+Stage 1: Generate Candidates for Onboard Pipeline (v2.3.0)
 Extracts candidate sets from database for Claude curation with composite scoring
 
 Constraints: ONB-037 to ONB-040, ONB-048 to ONB-052, ONB-056, ONB-060 to ONB-062
              CS-001 through CS-070 (Composite Scoring - Spec 31)
+
+v2.3.0: Prepares candidate data for Stage 5 relationship cross-reference queries
+v2.1.0: Added composite scoring (Spec 31) for candidate ranking
 """
 
 import sqlite3

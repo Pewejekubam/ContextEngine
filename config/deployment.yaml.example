@@ -21,4 +21,4 @@ structure:
 behavior:
   rule_id_format: "{TYPE}-{NNNNN}"
   rule_id_padding: 5
-  chatlog_schema_version: v1.10.0
+  chatlog_schema_version: v1.13.0

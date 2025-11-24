@@ -32,9 +32,8 @@ Context Engine initialization is a **one-shot, automated process** that configur
 - Reports discovered domains with evidence
 
 **Command**:
-```bash
+
 Ask Claude: "Please process .context-engine-init.md"
-```
 
 ### Upgrade (Compatible Versions)
 
@@ -48,9 +47,8 @@ Ask Claude: "Please process .context-engine-init.md"
 - Reports what was preserved and updated
 
 **Command**:
-```bash
+
 Ask Claude: "Please process .context-engine-init.md"
-```
 
 ### Migration Required
 
@@ -63,9 +61,8 @@ Ask Claude: "Please process .context-engine-init.md"
 - Exits without running setup (you must migrate first)
 
 **Command**:
-```bash
+
 Ask Claude: "Please process .context-engine-init.md"
-```
 
 After completing migration steps, re-run initialization.
 
@@ -163,11 +160,11 @@ Here's what initialization discovers for a typical ETL project:
 
 ## Customizing Discovered Domains
 
-After initialization, you can refine the vocabulary:
+After initialization, you can refine the vocabulary from your `.context-engine/` directory:
 
 ### Reviewing Discovered Domains
 
-Check `config/tag-vocabulary.yaml`:
+Check `config/tag-vocabulary.yaml` (from the `.context-engine` directory):
 
 ```yaml
 tier_1_domains:
