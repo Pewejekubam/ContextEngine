@@ -72,12 +72,17 @@ if ! git push github main; then
     git push github main
 fi
 
-# Push tag separately (allow existing tags)
-git push github "v${VERSION}" 2>/dev/null || echo "Tag v${VERSION} already on remote"
+# Push tag (force update if exists)
+if ! git push github "v${VERSION}" 2>/dev/null; then
+    echo "Tag v${VERSION} already exists on remote, force updating..."
+    git push github :refs/tags/v${VERSION} 2>/dev/null || true
+    git push github "v${VERSION}"
+fi
 
 # Create GitHub release
 if command -v gh >/dev/null 2>&1; then
     # Use gh CLI if available
+    gh release delete "v${VERSION}" -y 2>/dev/null || true
     gh release create "v${VERSION}" "$TARBALL" \
         --title "Context Engine v${VERSION}" \
         --notes "Distribution release v${VERSION}
@@ -95,6 +100,21 @@ Download and extract the tarball to use Context Engine.
 
 See README.md for installation instructions."
 
+        # Delete existing release if it exists
+        EXISTING_RELEASE_ID=$(curl -s \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/Pewejekubam/ContextEngine/releases/tags/v${VERSION} \
+            | jq -r '.id // empty')
+
+        if [ -n "$EXISTING_RELEASE_ID" ] && [ "$EXISTING_RELEASE_ID" != "null" ]; then
+            echo "Deleting existing release v${VERSION}..."
+            curl -s -X DELETE \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                https://api.github.com/repos/Pewejekubam/ContextEngine/releases/${EXISTING_RELEASE_ID}
+        fi
+
         # Create release
         RELEASE_ID=$(curl -s -X POST \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
@@ -109,10 +129,10 @@ See README.md for installation instructions."
                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                 -H "Content-Type: application/x-tar" \
                 --data-binary "@${TARBALL}" \
-                "https://uploads.github.com/repos/Pewejekubam/ContextEngine/releases/${RELEASE_ID}/assets?name=${TARBALL}"
+                "https://uploads.github.com/repos/Pewejekubam/ContextEngine/releases/${RELEASE_ID}/assets?name=${TARBALL}" >/dev/null
             echo "GitHub release created with API"
         else
-            echo "WARNING: GitHub release not created (no gh CLI or API error)"
+            echo "WARNING: GitHub release not created (API error)"
         fi
     else
         echo "WARNING: GitHub release not created (no gh CLI and no GITHUB_TOKEN)"
