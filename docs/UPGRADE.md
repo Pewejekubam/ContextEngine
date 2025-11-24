@@ -35,15 +35,27 @@ The setup script automatically checks schema compatibility when you run it.
 The initialization prompt handles upgrades automatically:
 
 1. Download and extract new version over your existing installation:
+
+   **Download latest release automatically:**
    ```bash
-   # Download using curl
+   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
+   ```
+
+   **Or download a specific version:**
+
+   Using curl:
+   ```bash
    curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+   ```
 
-   # Or using wget
+   Using wget:
+   ```bash
    wget https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+   ```
 
-   # Extract
-   tar -xf context-engine-runtime-v<new-version>-<timestamp>.tar
+   Extract and enter directory:
+   ```bash
+   tar -xf context-engine-runtime-*.tar
    cd .context-engine
    ```
 
@@ -64,15 +76,27 @@ The initialization prompt handles upgrades automatically:
 If you prefer manual control:
 
 1. Download and extract new version:
+
+   **Download latest release automatically:**
    ```bash
-   # Download using curl
+   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
+   ```
+
+   **Or download a specific version:**
+
+   Using curl:
+   ```bash
    curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+   ```
 
-   # Or using wget
+   Using wget:
+   ```bash
    wget https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+   ```
 
-   # Extract
-   tar -xf context-engine-runtime-v<new-version>-<timestamp>.tar
+   Extract:
+   ```bash
+   tar -xf context-engine-runtime-*.tar
    ```
 
 2. Backup your data:

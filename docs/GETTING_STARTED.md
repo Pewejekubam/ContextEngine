@@ -15,15 +15,27 @@ engineering decisions, constraints, and architectural knowledge across projects.
 ## Installation
 
 1. Download and extract the distribution:
+
+   **Download latest release automatically:**
    ```bash
-   # Download using curl
+   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
+   ```
+
+   **Or download a specific version** (v3.3.0):
+
+   Using curl:
+   ```bash
    curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
+   ```
 
-   # Or using wget
+   Using wget:
+   ```bash
    wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
+   ```
 
-   # Extract
-   tar -xf context-engine-runtime-v3.3.0-20251124-130820Z.tar
+   Extract and enter directory:
+   ```bash
+   tar -xf context-engine-runtime-*.tar
    cd .context-engine
    ```
 
