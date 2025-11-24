@@ -92,7 +92,14 @@ cd /path/to/your/project
 ```
 
 ```bash
-tar -xf context-engine-runtime-v3.1.0-20251116-180253Z.tar
+# Download using curl
+curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
+
+# Or using wget
+wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
+
+# Extract
+tar -xf context-engine-runtime-v3.3.0-20251124-130820Z.tar
 ```
 
 **Benefits:**

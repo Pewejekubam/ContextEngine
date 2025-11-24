@@ -34,9 +34,16 @@ The setup script automatically checks schema compatibility when you run it.
 
 The initialization prompt handles upgrades automatically:
 
-1. Extract new version over your existing installation:
+1. Download and extract new version over your existing installation:
    ```bash
-   tar -xzf context-engine-runtime-v<new-version>.tar.gz
+   # Download using curl
+   curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+
+   # Or using wget
+   wget https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+
+   # Extract
+   tar -xf context-engine-runtime-v<new-version>-<timestamp>.tar
    cd .context-engine
    ```
 
@@ -56,9 +63,16 @@ The initialization prompt handles upgrades automatically:
 
 If you prefer manual control:
 
-1. Download new version:
+1. Download and extract new version:
    ```bash
-   tar -xzf .context-engine-runtime-v<new-version>.tar.gz
+   # Download using curl
+   curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+
+   # Or using wget
+   wget https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
+
+   # Extract
+   tar -xf context-engine-runtime-v<new-version>-<timestamp>.tar
    ```
 
 2. Backup your data:
