@@ -31,7 +31,7 @@ Support for other AI assistants (OpenAI, local models, etc.) is planned for futu
 ## Workflow
 
 ```mermaid
-graph LR
+graph TD
     A[Work Session] --> B[Capture Command]
     B --> C[Chatlog YAML]
     C --> D[Extract to DB]
