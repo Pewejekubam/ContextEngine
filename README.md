@@ -3,7 +3,6 @@
 ![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![SQLite](https://img.shields.io/badge/database-SQLite-lightgrey.svg)
-![Tests](https://github.com/Pewejekubam/ContextEngine/workflows/Tests/badge.svg)
 
 A portable, drop-in tool for capturing and managing engineering decisions, constraints, and architectural knowledge across projects.
 
