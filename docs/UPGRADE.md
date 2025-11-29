@@ -42,6 +42,8 @@ If you installed via `git clone`, upgrading is straightforward:
    git pull origin main
    ```
 
+   **Understanding nested repos:** When you cloned Context Engine into `.context-engine/`, it created a nested git repository that is completely independent from your project's repo. The `cd .context-engine` command enters that nested repo so git commands operate on Context Engine, not your project. Updates to Context Engine won't affect your project's git history, and vice versa.
+
 2. **Run initialization to apply any updates:**
    ```bash
    Ask Claude: "Please process commands/ce-init.md"
