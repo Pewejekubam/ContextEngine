@@ -33,7 +33,7 @@
 #!/bin/bash
 set -e
 
-# MS-001: Validate arguments (exactly 2 required)
+# Validate arguments
 if [ $# -ne 2 ]; then
     echo "ERROR: Usage: /mark-salience <rule_id> <salience_value>" >&2
     echo "Example: /mark-salience ADR-00001 0.9" >&2
@@ -43,28 +43,28 @@ fi
 RULE_ID="$1"
 SALIENCE="$2"
 
-# MS-002: Validate rule_id format (^[A-Z]{3}-\d{5}$)
+# Validate rule_id format (ADR-00001, CON-00042, etc.)
 if ! echo "$RULE_ID" | grep -qE '^[A-Z]{3}-[0-9]{5}$'; then
     echo "ERROR: Invalid rule_id format: $RULE_ID" >&2
     echo "Expected format: XXX-NNNNN (e.g., ADR-00001)" >&2
     exit 1
 fi
 
-# MS-003: Validate salience value (0.0 <= value <= 1.0)
+# Validate salience value (0.0-1.0)
 if ! echo "$SALIENCE" | grep -qE '^(0(\.[0-9]+)?|1(\.0+)?)$'; then
     echo "ERROR: Invalid salience value: $SALIENCE" >&2
     echo "Expected range: 0.0 to 1.0" >&2
     exit 1
 fi
 
-# MS-003: Additional numeric validation
+# Additional numeric validation
 if ! awk -v val="$SALIENCE" 'BEGIN { exit (val < 0.0 || val > 1.0) }'; then
     echo "ERROR: Salience value out of range: $SALIENCE" >&2
     echo "Expected: 0.0 <= value <= 1.0" >&2
     exit 1
 fi
 
-# MS-008: Detect Context Engine installation (portable)
+# Detect Context Engine installation
 CONTEXT_ENGINE_HOME=""
 if [ -f .context-engine/config/deployment.yaml ]; then
     CONTEXT_ENGINE_HOME=".context-engine"
@@ -76,7 +76,7 @@ else
     exit 3
 fi
 
-# MS-008: Read database path from deployment.yaml
+# Read database path from deployment.yaml
 DB_PATH=$(python3 -c "
 import yaml, sys
 try:
@@ -112,7 +112,7 @@ if [ "$SCHEMA_VERSION" != "1.2.0" ]; then
     exit 4
 fi
 
-# MS-004: Check if rule exists
+# Check if rule exists
 RULE_EXISTS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM rules WHERE id = '$RULE_ID';")
 
 if [ "$RULE_EXISTS" -eq 0 ]; then
@@ -121,7 +121,7 @@ if [ "$RULE_EXISTS" -eq 0 ]; then
     exit 2
 fi
 
-# MS-005: Update salience with manual override marker (atomic transaction)
+# Update salience with manual override marker
 sqlite3 "$DB_PATH" <<SQL
 BEGIN TRANSACTION;
 UPDATE rules
@@ -131,7 +131,7 @@ WHERE id = '$RULE_ID';
 COMMIT;
 SQL
 
-# MS-007: Report success (stdout for success, stderr for errors)
+# Report success
 echo "✓ Updated $RULE_ID: salience = $SALIENCE (manual override)"
 echo "  Previous method: $(sqlite3 "$DB_PATH" "SELECT COALESCE(json_extract(metadata, '\$.salience_method'), 'unset') FROM rules WHERE id = '$RULE_ID';" | head -1)"
 exit 0

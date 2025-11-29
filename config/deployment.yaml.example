@@ -1,11 +1,11 @@
 # Context Engine Runtime Configuration
 # Generated deployment template - copy to deployment.yaml and customize
 
-# === Deployment-specific paths (written by ce-init.sh --setup at first run) ===
+# === Deployment-specific paths (written by setup.sh at first run) ===
 paths:
-  project_root: __PLACEHOLDER__  # Populated by ce-init.sh --setup
-  context_engine_home: __PLACEHOLDER__  # Populated by ce-init.sh --setup
-  commands_dir: __PLACEHOLDER__  # Populated by ce-init.sh --setup
+  project_root: __PLACEHOLDER__  # Populated by setup.sh
+  context_engine_home: __PLACEHOLDER__  # Populated by setup.sh
+  commands_dir: __PLACEHOLDER__  # Populated by setup.sh
 
 # === Context Engine directory structure (fixed relative paths) ===
 structure:
@@ -22,3 +22,6 @@ behavior:
   rule_id_format: "{TYPE}-{NNNNN}"
   rule_id_padding: 5
   chatlog_schema_version: v1.14.0
+  rule_types: [ADR, CON, INV]
+  tags_state_values: [needs_tags, pending_review, refined, curated]
+  lifecycle_values: [active, superseded, deprecated, archived]

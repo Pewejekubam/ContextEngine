@@ -8,7 +8,13 @@ Generated from: specs/modules/runtime-script-quality-classifier-v1.0.0.yaml
 
 import sys
 import json
+import sqlite3
+import re
+import subprocess
+import argparse
 from pathlib import Path
+from datetime import datetime, UTC
+from typing import Dict, List, Optional, Tuple
 
 # INV-023: Check Python version
 if sys.version_info < (3, 8):
@@ -42,347 +48,333 @@ def load_config():
 # RUNTIME-SCRIPT-QUALITY-CLASSIFIER MODULE IMPLEMENTATION
 # ============================================================================
 
-import re
-import sqlite3
-from datetime import datetime, timezone
-
-# CLS-011: 12 hardcoded heuristic patterns for generic advice detection
+# CLS-011: Hardcoded heuristic patterns for v1.0.0
 HEURISTIC_PATTERNS = [
-    # Pattern 1: Descriptive naming
     (r'\buse\s+descriptive\s+(variable|function|class|method)?\s*names?\b', 1.0),
-    # Pattern 2: Unit testing
     (r'\bwrite\s+unit\s+tests?\b', 1.0),
-    # Pattern 3: Best practices
     (r'\bfollow\s+best\s+practices?\b', 1.0),
-    # Pattern 4: Code cleanliness
     (r'\bkeep\s+code\s+clean\b', 1.0),
-    # Pattern 5: Error handling
     (r'\bhandle\s+(exceptions?|errors?)\s+gracefully\b', 1.0),
-    # Pattern 6: Magic numbers
     (r'\bavoid\s+(magic\s+numbers?|hardcoded\s+values?)\b', 1.0),
-    # Pattern 7: Documentation
-    (r'\bcomment\s+your\s+code\b|\bdocument\s+functions?\b', 1.0),
-    # Pattern 8: Design principles
+    (r'\bcomment\s+your\s+code\b', 1.0),
+    (r'\bdocument\s+functions?\b', 1.0),
     (r'\bfollow\s+(SOLID|DRY)\s+principles?\b', 1.0),
-    # Pattern 9: Commit messages
     (r'\buse\s+meaningful\s+commit\s+messages?\b', 1.0),
-    # Pattern 10: Refactoring
     (r'\brefactor\s+code\s+regularly\b', 1.0),
-    # Pattern 11: Code duplication
     (r'\bavoid\s+code\s+duplication\b', 1.0),
-    # Pattern 12: Static analysis
     (r'\buse\s+(linters?|static\s+analysis\s+tools?)\b', 1.0),
 ]
 
 
-def apply_heuristics(rule_text):
-    """CLS-009, CLS-010, CLS-012: Heuristic fast-path classification.
+class QualityClassifier:
+    """Hybrid heuristic + Claude quality classification for noise filtering."""
 
-    Returns:
-        tuple: (is_classified, classification_result or None)
-        - is_classified: True if heuristic confidence >= 0.7
-        - classification_result: dict with relevance, confidence, reasoning, method if classified
-    """
-    combined_text = rule_text.lower()
+    def __init__(self, config, batch_size: int = 15):
+        """Initialize classifier with configuration."""
+        self.config = config
+        self.batch_size = batch_size  # CLS-001
 
-    # CLS-012: Score calculation (exact phrase = 1.0, partial match = 0.5)
-    score = 0.0
-    matched_patterns = []
+        # Database path - try new structure first, fallback to old
+        if 'database_path' in config.get('structure', {}):
+            self.db_path = BASE_DIR / config['structure']['database_path']
+        else:
+            # Fallback to old structure
+            self.db_path = BASE_DIR / config['paths']['database']
 
-    for pattern, weight in HEURISTIC_PATTERNS:
-        if re.search(pattern, combined_text, re.IGNORECASE):
-            score += weight
-            matched_patterns.append(pattern)
+        # Template path
+        self.template_path = BASE_DIR / config['structure']['templates_dir'] / 'runtime-template-quality-classification.txt'
 
-    # CLS-012: Threshold >= 0.7 triggers classification without Claude
-    # CLS-010: Heuristics classify with confidence >= 0.8 (generic advice)
-    if score >= 0.7:
-        return (True, {
-            'relevance': 'general_advice',
-            'confidence': min(0.8 + (score - 0.7) * 0.2, 1.0),  # Scale 0.7-1.0 score to 0.8-1.0 confidence
-            'reasoning': f'Matches {len(matched_patterns)} generic software engineering pattern(s)',
-            'method': 'heuristic',
-            'scope': 'historical'  # Generic advice typically not needed for active development
-        })
+        # Vocabulary path (CLS-004a) - hardcoded per OPT-019b pattern
+        self.vocab_path = BASE_DIR / 'config' / 'tag-vocabulary.yaml'
 
-    # Not classified by heuristics
-    return (False, None)
+        # Connect to database
+        self.conn = sqlite3.connect(str(self.db_path))
+        self.conn.row_factory = sqlite3.Row
 
+        # Load vocabulary
+        self.vocabulary = self._load_vocabulary()
 
-def load_tier_1_domains(config):
-    """CLS-004a, CLS-004b: Load tier_1_domains from vocabulary file.
-
-    Returns:
-        dict: tier_1_domains dictionary mapping domain names to specifications
-    """
-    # Vocabulary file is relative to context engine home (BASE_DIR)
-    vocab_path = BASE_DIR / config['structure']['vocabulary_file']
-
-    with open(vocab_path) as f:
-        vocab = yaml.safe_load(f)
-
-    # CLS-004b: tier_1_domains structure validation
-    tier_1_domains = vocab.get('tier_1_domains', {})
-
-    return tier_1_domains
-
-
-def format_domains_for_prompt(tier_1_domains):
-    """CLS-004c: Format tier_1_domains as YAML string for Claude context.
-
-    Omits aliases for brevity, includes only names and descriptions.
-
-    Returns:
-        str: YAML formatted domain context
-    """
-    if not tier_1_domains:
-        return "No tier 1 domains defined for this project."
-
-    # Build YAML string manually for precise formatting
-    lines = ["Project Domains:"]
-    for domain_name, domain_spec in tier_1_domains.items():
-        description = domain_spec.get('description', 'No description')
-        lines.append(f"  {domain_name}: {description}")
-
-    return '\n'.join(lines)
-
-
-def load_template():
-    """Load quality classification template.
-
-    Returns:
-        str: Template content
-    """
-    template_path = BASE_DIR / "templates" / "runtime-template-quality-classification.txt"
-
-    with open(template_path) as f:
-        return f.read()
-
-
-def classify_batch_with_claude(rules_batch, tier_1_domains, batch_size, template_content):
-    """CLS-001, CLS-002, CLS-004, CLS-005, CLS-006: Classify batch with Claude API.
-
-    Args:
-        rules_batch: List of rule dictionaries
-        tier_1_domains: Domain context dictionary
-        batch_size: Number of rules in batch
-        template_content: Template string
-
-    Returns:
-        list: Classification results in same order as input (CLS-005)
-    """
-    # CLS-004c: Format domains for prompt
-    domains_formatted = format_domains_for_prompt(tier_1_domains)
-
-    # CLS-004d: Format rules batch as JSON
-    rules_formatted = json.dumps([
-        {
-            'id': r['id'],
-            'type': r['type'],
-            'title': r['title'],
-            'description': r['description'],
-            'domain': r['domain']
+        # Statistics
+        self.stats = {
+            'total_processed': 0,
+            'heuristic_classified': 0,
+            'claude_classified': 0,
+            'errors': 0,
+            'by_relevance': {'project_specific': 0, 'general_advice': 0, 'noise': 0}
         }
-        for r in rules_batch
-    ], indent=2)
 
-    # Substitute template variables
-    prompt = template_content.replace('{tier_1_domains_with_descriptions}', domains_formatted)
-    prompt = prompt.replace('{batch_size}', str(batch_size))
-    prompt = prompt.replace('{rules_batch_formatted}', rules_formatted)
+    def _load_vocabulary(self) -> dict:
+        """Load vocabulary file (CLS-004a)."""
+        try:
+            with open(self.vocab_path) as f:
+                vocab = yaml.safe_load(f)
+            return vocab
+        except Exception as e:
+            print(f"ERROR: Failed to load vocabulary: {e}", file=sys.stderr)
+            sys.exit(1)
 
-    # TODO: Actual Claude API invocation would go here
-    # For now, this is a placeholder that returns conservative defaults
-    # CLS-006: Classification failures default to confidence 0.5
+    def _format_tier1_domains(self) -> str:
+        """Format tier_1_domains for template (CLS-004c)."""
+        tier_1_domains = self.vocabulary.get('tier_1_domains', {})
 
-    # Placeholder: Return conservative classifications
-    results = []
-    for rule in rules_batch:
-        results.append({
-            'relevance': 'project_specific',  # Conservative default
-            'confidence': 0.5,  # CLS-006: Requires human review
-            'reasoning': 'Claude API integration pending - requires manual review',
-            'method': 'claude',
-            'scope': 'project_wide'
-        })
-
-    return results
-
-
-def get_database_path(config):
-    """Get database path from config.
-
-    Returns:
-        Path: Absolute path to database
-    """
-    # Database file is relative to context engine home (BASE_DIR)
-    return BASE_DIR / config['structure']['database_file']
-
-
-def classify_rules(config, dry_run=False):
-    """Main classification logic.
-
-    Args:
-        config: Configuration dictionary
-        dry_run: If True, don't write to database
-
-    Returns:
-        dict: Statistics about classification run
-    """
-    # CLS-004a: Load tier_1_domains from vocabulary
-    tier_1_domains = load_tier_1_domains(config)
-
-    # Load template
-    template_content = load_template()
-
-    # CLS-001: Get batch size from build-constants (default 15)
-    # Note: This would ideally read from build-constants.yaml in production
-    batch_size = 15  # Hardcoded for v1.0.0, should read from config in future
-
-    # Connect to database
-    db_path = get_database_path(config)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    # Get rules that need classification (no quality_classification in metadata)
-    cursor.execute("""
-        SELECT id, type, title, description, domain, metadata
-        FROM rules
-        WHERE lifecycle = 'active'
-        AND (metadata IS NULL
-             OR json_extract(metadata, '$.quality_classification') IS NULL)
-    """)
-
-    rules = cursor.fetchall()
-
-    stats = {
-        'total_rules': len(rules),
-        'heuristic_classified': 0,
-        'claude_classified': 0,
-        'batches_processed': 0,
-        'errors': 0
-    }
-
-    # Process rules in batches
-    for i in range(0, len(rules), batch_size):
-        batch = rules[i:i + batch_size]
-        batch_classifications = []
-
-        for rule in batch:
-            rule_dict = dict(rule)
-
-            # Parse existing metadata
-            metadata = {}
-            if rule_dict['metadata']:
-                try:
-                    metadata = json.loads(rule_dict['metadata'])
-                except json.JSONDecodeError:
-                    metadata = {}
-
-            # CLS-009: Try heuristic fast-path first
-            combined_text = f"{rule_dict['title']} {rule_dict['description'] or ''}"
-            is_classified, heuristic_result = apply_heuristics(combined_text)
-
-            if is_classified:
-                # CLS-010: High-confidence heuristic classification
-                classification = heuristic_result
-                stats['heuristic_classified'] += 1
+        # Format as YAML string with domain names and descriptions only
+        formatted_domains = {}
+        for domain_name, domain_spec in tier_1_domains.items():
+            if isinstance(domain_spec, dict):
+                formatted_domains[domain_name] = domain_spec.get('description', '')
             else:
-                # Need Claude classification
-                batch_classifications.append(rule_dict)
+                formatted_domains[domain_name] = str(domain_spec)
 
-        # CLS-001, CLS-005: Process remaining rules with Claude in batch
-        if batch_classifications:
-            try:
-                claude_results = classify_batch_with_claude(
-                    batch_classifications,
-                    tier_1_domains,
-                    len(batch_classifications),
-                    template_content
-                )
+        return yaml.dump(formatted_domains, default_flow_style=False, sort_keys=False)
 
-                # Update rules with Claude classifications
-                for rule_dict, claude_result in zip(batch_classifications, claude_results):
-                    # CLS-007: Store in metadata.quality_classification with ISO8601 timestamp
-                    metadata = {}
-                    if rule_dict['metadata']:
-                        try:
-                            metadata = json.loads(rule_dict['metadata'])
-                        except json.JSONDecodeError:
-                            metadata = {}
+    def apply_heuristic_filter(self, rule: dict) -> Optional[dict]:
+        """Apply heuristic fast-path filtering (CLS-009, CLS-010, CLS-011, CLS-012)."""
+        text = f"{rule['title']} {rule['description']}".lower()
 
-                    metadata['quality_classification'] = {
-                        'relevance': claude_result['relevance'],
-                        'confidence': claude_result['confidence'],
-                        'reasoning': claude_result['reasoning'],
-                        'method': claude_result['method'],
-                        'classified_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-                    }
+        score = 0.0
+        matched_patterns = []
 
-                    if not dry_run:
-                        cursor.execute(
-                            "UPDATE rules SET metadata = ? WHERE id = ?",
-                            (json.dumps(metadata), rule_dict['id'])
-                        )
+        # Check each pattern
+        for pattern, weight in HEURISTIC_PATTERNS:
+            if re.search(pattern, text, re.IGNORECASE):
+                score += weight
+                matched_patterns.append(pattern)
 
-                stats['claude_classified'] += len(batch_classifications)
+        # CLS-012: threshold >= 0.7 triggers classification without Claude
+        if score >= 0.7:
+            # CLS-010: Heuristics classify with confidence >= 0.8 (generic advice)
+            confidence = min(0.8 + (score - 0.7) * 0.2, 1.0)
 
-            except Exception as e:
-                print(f"Error processing batch: {e}", file=sys.stderr)
-                stats['errors'] += 1
+            return {
+                'rule_id': rule['id'],
+                'classification': 'general_advice',
+                'confidence': confidence,
+                'scope': 'historical',
+                'reasoning': f"Generic software engineering platitude (matched {len(matched_patterns)} patterns)",
+                'method': 'heuristic'
+            }
 
-        # Update heuristic-classified rules
-        for rule in batch:
-            rule_dict = dict(rule)
-            combined_text = f"{rule_dict['title']} {rule_dict['description'] or ''}"
-            is_classified, heuristic_result = apply_heuristics(combined_text)
+        return None
 
-            if is_classified:
-                metadata = {}
-                if rule_dict['metadata']:
-                    try:
-                        metadata = json.loads(rule_dict['metadata'])
-                    except json.JSONDecodeError:
-                        metadata = {}
+    def classify_batch_with_claude(self, rules: List[dict]) -> List[dict]:
+        """Classify rules batch using Claude (CLS-001, CLS-002, CLS-005, CLS-006)."""
+        try:
+            # Load template
+            with open(self.template_path) as f:
+                template = f.read()
 
-                # CLS-007: Store classification result
-                metadata['quality_classification'] = {
-                    'relevance': heuristic_result['relevance'],
-                    'confidence': heuristic_result['confidence'],
-                    'reasoning': heuristic_result['reasoning'],
-                    'method': heuristic_result['method'],
-                    'classified_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            # CLS-004c: Format tier_1_domains
+            tier_1_domains_formatted = self._format_tier1_domains()
+
+            # Format rules batch as JSON
+            rules_batch_formatted = json.dumps([
+                {
+                    'rule_id': rule['id'],
+                    'type': rule['type'],
+                    'title': rule['title'],
+                    'description': rule['description'],
+                    'domain': rule['domain']
                 }
+                for rule in rules
+            ], indent=2)
 
-                if not dry_run:
-                    cursor.execute(
-                        "UPDATE rules SET metadata = ? WHERE id = ?",
-                        (json.dumps(metadata), rule_dict['id'])
-                    )
+            # Substitute template variables
+            prompt = template.format(
+                tier_1_domains_with_descriptions=tier_1_domains_formatted,
+                batch_size=len(rules),
+                rules_batch_formatted=rules_batch_formatted
+            )
 
-        stats['batches_processed'] += 1
+            # Write prompt to temporary file
+            prompt_file = BASE_DIR / 'data' / f'quality-classify-prompt-{datetime.now(UTC).isoformat()}.txt'
+            prompt_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if not dry_run:
-        conn.commit()
-    conn.close()
+            with open(prompt_file, 'w') as f:
+                f.write(prompt)
 
-    return stats
+            # Invoke Claude CLI
+            result = subprocess.run(
+                ['claude', '--print'],
+                stdin=open(prompt_file),
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+
+            # Clean up prompt file
+            prompt_file.unlink()
+
+            if result.returncode != 0:
+                raise RuntimeError(f"Claude CLI failed: {result.stderr}")
+
+            # Parse response
+            response_text = result.stdout.strip()
+
+            # Extract JSON from markdown code blocks if present
+            if '```json' in response_text:
+                json_match = re.search(r'```json\s*(\[.*?\])\s*```', response_text, re.DOTALL)
+                if json_match:
+                    response_text = json_match.group(1)
+            elif '```' in response_text:
+                json_match = re.search(r'```\s*(\[.*?\])\s*```', response_text, re.DOTALL)
+                if json_match:
+                    response_text = json_match.group(1)
+
+            # Parse JSON
+            classifications = json.loads(response_text)
+
+            # CLS-005: Validate array order preservation
+            if not isinstance(classifications, list) or len(classifications) != len(rules):
+                raise ValueError(f"Expected {len(rules)} classifications, got {len(classifications)}")
+
+            # Add method tag
+            for c in classifications:
+                c['method'] = 'claude'
+
+            return classifications
+
+        except Exception as e:
+            # CLS-006: Classification failures default to confidence 0.5
+            print(f"WARNING: Claude classification failed: {e}", file=sys.stderr)
+            return [
+                {
+                    'rule_id': rule['id'],
+                    'classification': 'general_advice',
+                    'confidence': 0.5,
+                    'scope': 'project_wide',
+                    'reasoning': f"Classification failed: {str(e)}",
+                    'method': 'fallback'
+                }
+                for rule in rules
+            ]
+
+    def store_classification(self, rule_id: str, classification: dict):
+        """Store classification in metadata.quality_classification (CLS-007)."""
+        # Build metadata structure
+        metadata_update = {
+            'quality_classification': {
+                'relevance': classification['classification'],
+                'confidence': classification['confidence'],
+                'reasoning': classification['reasoning'],
+                'method': classification['method'],
+                'classified_at': datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+            }
+        }
+
+        # Merge with existing metadata
+        cursor = self.conn.execute(
+            "UPDATE rules SET metadata = json_patch(COALESCE(metadata, '{}'), ?) WHERE id = ?",
+            (json.dumps(metadata_update), rule_id)
+        )
+        self.conn.commit()
+
+    def classify_all(self, limit: Optional[int] = None):
+        """Classify all unclassified rules."""
+        # Query unclassified rules
+        query = """
+            SELECT id, type, title, description, domain, metadata
+            FROM rules
+            WHERE metadata IS NULL
+               OR json_extract(metadata, '$.quality_classification') IS NULL
+            ORDER BY created_at DESC
+        """
+
+        if limit:
+            query += f" LIMIT {limit}"
+
+        cursor = self.conn.execute(query)
+        all_rules = [dict(row) for row in cursor.fetchall()]
+
+        total = len(all_rules)
+
+        if total == 0:
+            print("No unclassified rules found.")
+            return
+
+        print(f"\nClassifying {total} rules...")
+        print(f"Batch size: {self.batch_size}")
+        print()
+
+        processed = 0
+        heuristic_count = 0
+
+        # Process in batches
+        batch = []
+        batch_rules = []
+
+        for rule in all_rules:
+            # Try heuristic first (CLS-009)
+            heuristic_result = self.apply_heuristic_filter(rule)
+
+            if heuristic_result:
+                # Heuristic classified (CLS-010)
+                self.store_classification(rule['id'], heuristic_result)
+                processed += 1
+                heuristic_count += 1
+                self.stats['heuristic_classified'] += 1
+                self.stats['by_relevance'][heuristic_result['classification']] += 1
+
+                print(f"  [{processed}/{total}] {rule['id']}: {rule['title'][:50]} | heuristic | {heuristic_result['classification']} | confidence={heuristic_result['confidence']:.2f}")
+            else:
+                # Add to batch for Claude classification
+                batch_rules.append(rule)
+
+                # Process batch when full
+                if len(batch_rules) >= self.batch_size:
+                    classifications = self.classify_batch_with_claude(batch_rules)
+
+                    for rule, classification in zip(batch_rules, classifications):
+                        self.store_classification(rule['id'], classification)
+                        processed += 1
+                        self.stats['claude_classified'] += 1
+                        self.stats['by_relevance'][classification['classification']] += 1
+
+                        print(f"  [{processed}/{total}] {rule['id']}: {rule['title'][:50]} | claude | {classification['classification']} | confidence={classification['confidence']:.2f}")
+
+                    batch_rules = []
+
+        # Process remaining batch
+        if batch_rules:
+            classifications = self.classify_batch_with_claude(batch_rules)
+
+            for rule, classification in zip(batch_rules, classifications):
+                self.store_classification(rule['id'], classification)
+                processed += 1
+                self.stats['claude_classified'] += 1
+                self.stats['by_relevance'][classification['classification']] += 1
+
+                print(f"  [{processed}/{total}] {rule['id']}: {rule['title'][:50]} | claude | {classification['classification']} | confidence={classification['confidence']:.2f}")
+
+        self.stats['total_processed'] = processed
+
+        # Print summary
+        print()
+        print("="*70)
+        print("Quality Classification Summary")
+        print("="*70)
+        print(f"Total Processed: {self.stats['total_processed']}")
+        print(f"Heuristic Classified: {self.stats['heuristic_classified']} ({100*self.stats['heuristic_classified']/max(1,self.stats['total_processed']):.1f}%)")
+        print(f"Claude Classified: {self.stats['claude_classified']} ({100*self.stats['claude_classified']/max(1,self.stats['total_processed']):.1f}%)")
+        print()
+        print("By Relevance:")
+        print(f"  project_specific: {self.stats['by_relevance']['project_specific']}")
+        print(f"  general_advice: {self.stats['by_relevance']['general_advice']}")
+        print(f"  noise: {self.stats['by_relevance']['noise']}")
+        print()
 
 
 def main():
     """Hybrid heuristic + Claude quality classification for noise filtering before tag optimization"""
-    print("Context Engine - Quality Classifier")
-    print("="*70)
+    parser = argparse.ArgumentParser(
+        description='Quality classifier with heuristic fast-path and Claude batching'
+    )
+    parser.add_argument('--limit', type=int, help='Limit number of rules to classify')
+    parser.add_argument('--batch-size', type=int, help='Override batch size (default from config)')
 
-    # Parse command line arguments
-    import argparse
-    parser = argparse.ArgumentParser(description='Classify rules by quality (signal vs noise)')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Preview classifications without writing to database')
-    parser.add_argument('--stats', action='store_true',
-                        help='Show classification statistics')
     args = parser.parse_args()
+
+    print("Context Engine - Runtime-script-quality-classifier Module")
+    print("="*70)
 
     # Load configuration
     try:
@@ -391,36 +383,27 @@ def main():
         print(f"Error loading configuration: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Run classification
-    print("\nClassifying rules...")
-    if args.dry_run:
-        print("(DRY RUN - no database writes)")
-
+    # Load batch size from build-constants.yaml (CLS-001)
     try:
-        stats = classify_rules(config, dry_run=args.dry_run)
-    except Exception as e:
-        print(f"\nError during classification: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        build_constants_path = BASE_DIR.parent / 'build' / 'config' / 'build-constants.yaml'
+        if build_constants_path.exists():
+            with open(build_constants_path) as f:
+                build_config = yaml.safe_load(f)
+                batch_size = build_config.get('tag_optimization', {}).get('classification_batch_size', 15)
+        else:
+            batch_size = 15
+    except Exception:
+        batch_size = 15
 
-    # Display results
-    print("\nClassification Results:")
-    print("-" * 70)
-    print(f"Total rules processed:     {stats['total_rules']}")
-    print(f"Heuristic classifications: {stats['heuristic_classified']} "
-          f"({100 * stats['heuristic_classified'] / max(stats['total_rules'], 1):.1f}%)")
-    print(f"Claude classifications:    {stats['claude_classified']} "
-          f"({100 * stats['claude_classified'] / max(stats['total_rules'], 1):.1f}%)")
-    print(f"Batches processed:         {stats['batches_processed']}")
-    print(f"Errors:                    {stats['errors']}")
+    # Override from command line if provided
+    if args.batch_size:
+        batch_size = args.batch_size
 
-    # CLS-009: Report cost reduction from heuristics
-    if stats['total_rules'] > 0:
-        cost_reduction = 100 * stats['heuristic_classified'] / stats['total_rules']
-        print(f"\nCost reduction from heuristics: {cost_reduction:.1f}%")
+    # Initialize classifier
+    classifier = QualityClassifier(config, batch_size=batch_size)
 
-    print("\nClassification complete.")
+    # Classify all unclassified rules
+    classifier.classify_all(limit=args.limit)
 
     return 0
 

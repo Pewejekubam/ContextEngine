@@ -1,4 +1,3 @@
-
 Optimize tags for this rule using the vocabulary provided.
 
 Rule ID: {rule_id}
