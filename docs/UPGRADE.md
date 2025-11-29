@@ -45,11 +45,11 @@ If you installed via `git clone`, upgrading is straightforward:
    **Understanding nested repos:** When you cloned Context Engine into `.context-engine/`, it created a nested git repository that is completely independent from your project's repo. The `cd .context-engine` command enters that nested repo so git commands operate on Context Engine, not your project. Updates to Context Engine won't affect your project's git history, and vice versa.
 
 2. **Run initialization to apply any updates:**
-   ```bash
-   Ask Claude: "Please process commands/ce-init.md"
+   ```
+   /ce-init
    ```
 
-   The initialization will:
+   Since CE is already deployed, the slash command is available. The initialization will:
    - Detect existing deployment.yaml (upgrade mode)
    - Check schema version compatibility
    - Preserve your configurations and data
@@ -106,11 +106,11 @@ The initialization prompt handles upgrades automatically:
    ```
 
 2. Run initialization (detects upgrade automatically):
-   ```bash
-   Ask Claude: "Please process commands/ce-init.md"
+   ```
+   /ce-init
    ```
 
-   The prompt will:
+   Since CE is already deployed, the slash command is available. The prompt will:
    - Detect existing deployment.yaml (upgrade mode)
    - Check schema version compatibility
    - Preserve your configurations and data
