@@ -151,10 +151,9 @@ If you prefer manual control:
    diff .context-engine/config/tag-vocabulary.yaml .context-engine-new/config/tag-vocabulary.yaml.example
    ```
 
-5. Re-run setup to update paths:
-   ```bash
-   cd .context-engine
-   bash commands/ce-init.sh --setup
+5. Run initialization to update paths:
+   ```
+   /ce-init
    ```
 
 ---
@@ -221,9 +220,9 @@ If you encounter issues after upgrading, follow the rollback procedure for your 
    cp rules.db.backup_<timestamp> .context-engine/data/rules.db
    ```
 
-3. **Re-run setup:**
-   ```bash
-   bash commands/ce-init.sh --setup
+3. **Re-run initialization:**
+   ```
+   /ce-init
    ```
 
 4. **Return to main branch** when ready to try upgrading again:
@@ -248,10 +247,9 @@ If you encounter issues after upgrading, follow the rollback procedure for your 
 
 4. Re-extract your previous version tarball
 
-5. Run setup to reconfigure paths:
-   ```bash
-   cd .context-engine
-   bash commands/ce-init.sh --setup
+5. Run initialization to reconfigure paths:
+   ```
+   /ce-init
    ```
 
 ---
