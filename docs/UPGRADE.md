@@ -34,36 +34,15 @@ The setup script automatically checks schema compatibility when you run it.
 
 The initialization prompt handles upgrades automatically:
 
-1. Download and extract new version over your existing installation:
-
-   **Download latest release automatically:**
+1. Extract new version over your existing installation:
    ```bash
-   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
-   ```
-
-   **Or download a specific version:**
-
-   Using curl:
-   ```bash
-   curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
-   ```
-
-   Using wget:
-   ```bash
-   wget https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
-   ```
-
-   Extract and enter directory:
-   ```bash
-   tar -xf context-engine-runtime-*.tar
+   tar -xf context-engine-runtime-v<new-version>.tar
    cd .context-engine
    ```
 
 2. Run initialization (detects upgrade automatically):
-
-   Ask Claude:
-   ```
-   Please process .context-engine-init.md
+   ```bash
+   Ask Claude: "Please process .context-engine-init.md"
    ```
 
    The prompt will:
@@ -71,35 +50,16 @@ The initialization prompt handles upgrades automatically:
    - Check schema version compatibility
    - Preserve your configurations and data
    - Update scripts and runtime files
-   - Run setup.sh if needed
+   - Run `ce-init.sh --setup` to reconfigure paths
    - Report migration requirements if versions incompatible
 
 ### Manual Upgrade (Fallback)
 
 If you prefer manual control:
 
-1. Download and extract new version:
-
-   **Download latest release automatically:**
+1. Download new version:
    ```bash
-   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
-   ```
-
-   **Or download a specific version:**
-
-   Using curl:
-   ```bash
-   curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
-   ```
-
-   Using wget:
-   ```bash
-   wget https://github.com/Pewejekubam/ContextEngine/releases/download/v<new-version>/context-engine-runtime-v<new-version>-<timestamp>.tar
-   ```
-
-   Extract:
-   ```bash
-   tar -xf context-engine-runtime-*.tar
+   tar -xf context-engine-runtime-v<new-version>.tar
    ```
 
 2. Backup your data:
@@ -116,8 +76,8 @@ If you prefer manual control:
    # Copy new runtime files
    cp -r .context-engine-new/scripts .context-engine/
    cp -r .context-engine-new/schema .context-engine/
+   cp -r .context-engine-new/commands .context-engine/
    cp .context-engine-new/Makefile .context-engine/
-   cp .context-engine-new/setup.sh .context-engine/
    ```
 
 4. Review new example configs (don't overwrite yours):
@@ -129,7 +89,7 @@ If you prefer manual control:
 5. Re-run setup to update paths:
    ```bash
    cd .context-engine
-   ./setup.sh
+   bash commands/ce-init.sh --setup
    ```
 
 ---
@@ -192,10 +152,10 @@ If you encounter issues after upgrading:
 
 4. Re-extract your previous version tarball
 
-5. Run setup.sh to reconfigure paths:
+5. Run setup to reconfigure paths:
    ```bash
    cd .context-engine
-   ./setup.sh
+   bash commands/ce-init.sh --setup
    ```
 
 ---

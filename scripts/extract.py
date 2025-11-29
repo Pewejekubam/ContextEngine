@@ -46,65 +46,93 @@ def load_config():
 # ============================================================================
 
 
+def resolve_reusability_scope(category_key, rule_index, reusability_scope_map):
+    """
+    EXT-065, EXT-066, EXT-067: Resolve rule scope from chatlog references
+
+    Args:
+        category_key: 'decisions', 'constraints', or 'invariants'
+        rule_index: 0-based index within category
+        reusability_scope_map: dict from session_context.reusability_scope
+
+    Returns:
+        'project_wide', 'module_scoped', or 'historical'
+    """
+    rule_ref = f"{category_key}[{rule_index}]"
+
+    # Check explicit mappings
+    if rule_ref in reusability_scope_map.get('project_wide', []):
+        return 'project_wide'
+
+    if rule_ref in reusability_scope_map.get('historical', []):
+        return 'historical'
+
+    # Check module_scoped dict
+    for module, refs in reusability_scope_map.get('module_scoped', {}).items():
+        if rule_ref in refs:
+            return 'module_scoped'
+
+    # EXT-068: Default to project_wide
+    return 'project_wide'
+
+
 class ChatlogExtractor:
-    """ETL processor for transforming chatlogs into database rules"""
+    """ETL processor for chatlog to database extraction (EXT-001)"""
 
     def __init__(self, config):
         """Initialize extractor with configuration"""
         self.config = config
 
-        # EXT-014, EXT-015, EXT-016: Read paths from config['structure']
+        # EXT-014: Database path from config['structure']['database_path']
         self.db_path = BASE_DIR / config['structure']['database_path']
+
+        # EXT-015: Chatlogs directory from config['structure']['chatlogs_dir']
         self.chatlogs_dir = BASE_DIR / config['structure']['chatlogs_dir']
+
+        # EXT-016: Schema directory from config['structure']['schema_dir']
         self.schema_path = BASE_DIR / config['structure']['schema_dir'] / 'schema.sql'
 
-        # EXT-010: Get expected schema version from config
+        # EXT-010: Schema version from config['behavior']['chatlog_schema_version']
         self.expected_schema_version = config['behavior']['chatlog_schema_version']
 
-        # EXT-031: Get rule ID formatting settings
+        # EXT-031: Rule ID format configuration
         self.rule_id_format = config['behavior']['rule_id_format']
         self.rule_id_padding = config['behavior']['rule_id_padding']
 
-        # EXT-030a: Initialize ID counters for in-transaction tracking
+        # EXT-030a: In-memory ID counters per type
         self.id_counters = {}
 
-        # Database connection (initialized later)
-        self.conn = None
-
-        # Statistics tracking
+        # Statistics (EXT-071)
         self.stats = {
             'total_chatlogs': 0,
             'total_rules': 0,
             'rules_by_type': {'ADR': 0, 'CON': 0, 'INV': 0},
             'total_confidence': 0.0,
-            'skipped_chatlogs': 0,
             'filtered_rules': 0
         }
 
+        # Database connection
+        self.conn = None
+
+        # EXT-093: Load salience defaults
+        self.salience_defaults = self.load_salience_config()
+
     def load_salience_config(self):
-        """Load salience defaults from config (EXT-091, SAL-009)"""
-        # Try to load from config first
-        salience_defaults = self.config.get('salience_defaults', {})
-
-        # Fallback to hardcoded defaults if not in config
-        if not salience_defaults:
-            salience_defaults = {
-                'INV': 0.8,
-                'ADR': 0.7,
-                'CON': 0.6,
-                'PAT': 0.5
-            }
-
-        return salience_defaults
+        """EXT-091: Load salience defaults from config"""
+        return self.config.get('salience_defaults', {
+            'INV': 0.8,
+            'ADR': 0.7,
+            'CON': 0.6,
+            'PAT': 0.5
+        })
 
     def verify_schema_version(self):
-        """Verify database schema version v1.2.0 (EXT-093, SAL-012)"""
+        """EXT-093: Verify schema version v1.2.0"""
         try:
             cursor = self.conn.execute(
                 "SELECT value FROM schema_metadata WHERE key = 'schema_version' LIMIT 1"
             )
             row = cursor.fetchone()
-
             if not row or row[0] != '1.2.0':
                 print(
                     f"ERROR: Schema version mismatch. Expected 1.2.0, found {row[0] if row else 'unknown'}",
@@ -116,14 +144,13 @@ class ChatlogExtractor:
             print("ERROR: schema_metadata table not found. Database schema incompatible.", file=sys.stderr)
             sys.exit(4)
 
-    def initialize_database(self):
-        """Initialize database connection and create schema if needed (EXT-006, EXT-007)"""
-        # EXT-006: Create database from schema if it doesn't exist
+    def ensure_database(self):
+        """EXT-006, EXT-007: Create database from schema if it doesn't exist"""
         if not self.db_path.exists():
-            print(f"Creating new database: {self.db_path}")
+            print(f"Creating database at {self.db_path}")
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Read schema file
+            # Read schema
             if not self.schema_path.exists():
                 print(f"ERROR: Schema file not found: {self.schema_path}", file=sys.stderr)
                 sys.exit(1)
@@ -132,21 +159,18 @@ class ChatlogExtractor:
                 schema_sql = f.read()
 
             # Create database
-            conn = sqlite3.connect(str(self.db_path))
+            conn = sqlite3.connect(self.db_path)
             conn.executescript(schema_sql)
             conn.commit()
             conn.close()
-            print("Database created successfully")
 
-        # Open connection with row factory
-        self.conn = sqlite3.connect(str(self.db_path))
+    def connect_database(self):
+        """Connect to database with row factory"""
+        self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
 
-        # EXT-093: Verify schema version before proceeding
+        # EXT-093: Verify schema version
         self.verify_schema_version()
-
-        # Load salience defaults
-        self.salience_defaults = self.load_salience_config()
 
     def get_unprocessed_chatlogs(self):
         """Find chatlogs not yet processed (EXT-002, EXT-004, EXT-004a)"""
@@ -183,15 +207,17 @@ class ChatlogExtractor:
         return unprocessed
 
     def normalize_title(self, topic):
-        """Create URL-safe title from topic (EXT-033, EXT-033a-f)"""
-        # Convert to lowercase and replace non-alphanumeric with hyphens
+        """EXT-033: URL-safe normalization of topic to title"""
+        # Convert to lowercase
         title = topic.lower()
+
+        # EXT-033a: Replace non-alphanumeric with hyphens
         title = re.sub(r'[^a-z0-9]+', '-', title)
 
-        # EXT-033b: Remove leading/trailing hyphens
+        # EXT-033b: Strip leading/trailing hyphens
         title = title.strip('-')
 
-        # EXT-033c: Replace consecutive hyphens with single hyphen
+        # EXT-033c: Replace consecutive hyphens
         title = re.sub(r'-+', '-', title)
 
         # EXT-033e, EXT-033f: Truncate at 100 characters with ellipsis
@@ -200,25 +226,16 @@ class ChatlogExtractor:
 
         return title
 
-    def format_rule_id(self, rule_type, sequence):
-        """Format rule ID using template (EXT-031, EXT-031a)"""
-        # EXT-031a: Use string replacement to avoid Python keyword conflicts
-        padded_seq = str(sequence).zfill(self.rule_id_padding)
-        rule_id = self.rule_id_format.replace('{TYPE}', rule_type)
-        rule_id = rule_id.replace('{NNNNN}', padded_seq)
-        return rule_id
-
     def get_next_rule_id(self, rule_type):
-        """Generate next sequential rule ID (EXT-030, EXT-030a, EXT-032)"""
-        # Map category names to rule type prefixes
+        """EXT-030, EXT-030a, EXT-031, EXT-031a: Generate next unique rule ID"""
         type_map = {
-            'decisions': 'ADR',
-            'constraints': 'CON',
-            'invariants': 'INV'
+            'decision': 'ADR',
+            'constraint': 'CON',
+            'invariant': 'INV'
         }
-        prefix = type_map.get(rule_type, rule_type)
+        prefix = type_map[rule_type]
 
-        # EXT-030a: Initialize counter on first call for this type
+        # Initialize counter on first call for this type
         if prefix not in self.id_counters:
             # Query database for current max
             cursor = self.conn.execute(
@@ -226,308 +243,273 @@ class ChatlogExtractor:
                 (prefix,)
             )
             row = cursor.fetchone()
-
             if row:
                 # Extract number from ID (e.g., "CON-00073" -> 73)
                 match = re.search(r'\d+', row['id'])
                 seq = int(match.group()) + 1 if match else 1
             else:
                 seq = 1
-
             self.id_counters[prefix] = seq
 
         # Allocate next ID from counter
         seq = self.id_counters[prefix]
         self.id_counters[prefix] += 1
 
-        return self.format_rule_id(prefix, seq)
+        # EXT-031a: Format using string replacement
+        rule_id = self.rule_id_format.replace('{TYPE}', prefix).replace(
+            '{NNNNN}', str(seq).zfill(self.rule_id_padding)
+        )
 
-    def resolve_reusability_scope(self, category_key, rule_index, reusability_scope_map):
-        """Resolve rule scope from chatlog references (EXT-065, EXT-066, EXT-067, EXT-068)"""
-        rule_ref = f"{category_key}[{rule_index}]"
+        return rule_id
 
-        # Check explicit mappings
-        if rule_ref in reusability_scope_map.get('project_wide', []):
-            return 'project_wide'
+    def assign_default_salience(self, rule_record, metadata_dict):
+        """EXT-091, EXT-092: Assign default salience if not already set
 
-        if rule_ref in reusability_scope_map.get('historical', []):
-            return 'historical'
-
-        # Check module_scoped dict
-        for module, refs in reusability_scope_map.get('module_scoped', {}).items():
-            if rule_ref in refs:
-                return 'module_scoped'
-
-        # EXT-068: Default to project_wide
-        return 'project_wide'
-
-    def assign_default_salience(self, rule):
-        """Assign default salience if not already set (EXT-091, EXT-092)"""
-        metadata = rule.get('metadata') or {}
-
+        Args:
+            rule_record: Dict with rule fields (will be modified)
+            metadata_dict: Dict with metadata (will be modified)
+        """
         # EXT-092: Skip if already assigned
-        if 'salience_method' in metadata:
+        if 'salience_method' in metadata_dict:
             return
 
         # EXT-091: Assign default
-        if rule.get('salience') is None:
-            rule_type = rule['type']
-            rule['salience'] = self.salience_defaults.get(rule_type, 0.5)
-            metadata['salience_method'] = 'default'
-            rule['metadata'] = metadata
+        if rule_record.get('salience') is None:
+            rule_type = rule_record['type']
+            rule_record['salience'] = self.salience_defaults.get(rule_type, 0.5)
+            metadata_dict['salience_method'] = 'default'
 
-    def process_chatlog(self, chatlog_path):
-        """Process single chatlog file (EXT-001, EXT-050-053, EXT-070)"""
-        print(f"\nProcessing: {chatlog_path.name}")
+    def validate_chatlog(self, chatlog, chatlog_path):
+        """EXT-010, EXT-011, EXT-012, EXT-012a, EXT-012b: Validate chatlog structure"""
+        # EXT-010: Schema version check
+        if chatlog.get('schema_version') != self.expected_schema_version:
+            print(f"  ERROR: Incompatible schema version {chatlog.get('schema_version')}, expected {self.expected_schema_version}")
+            return False
 
-        try:
-            # Load chatlog YAML
-            with open(chatlog_path) as f:
-                chatlog = yaml.safe_load(f)
-
-            # EXT-010: Validate schema version
-            chatlog_version = chatlog.get('schema_version', '')
-            if chatlog_version != self.expected_schema_version:
-                # EXT-011: Skip with error logged
-                print(f"  ERROR: Schema version mismatch. Expected {self.expected_schema_version}, got {chatlog_version}")
-                self.stats['skipped_chatlogs'] += 1
-                return False  # EXT-013: Not marked as processed
-
-            # EXT-012: Validate required fields
-            required_fields = ['chatlog_id', 'timestamp', 'rules']
-            for field in required_fields:
-                if field not in chatlog:
-                    print(f"  ERROR: Missing required field: {field}")
-                    self.stats['skipped_chatlogs'] += 1
-                    return False
-
-            # EXT-012a: Validate rules field is a dict
-            rules = chatlog.get('rules', {})
-            if not isinstance(rules, dict):
-                print(f"  ERROR: rules field must be dict, got {type(rules).__name__}")
-                self.stats['skipped_chatlogs'] += 1
+        # EXT-012: Required fields
+        required_fields = ['chatlog_id', 'timestamp', 'rules']
+        for field in required_fields:
+            if field not in chatlog:
+                print(f"  ERROR: Missing required field '{field}'")
                 return False
 
-            # EXT-065: Load reusability scope map
-            session_context = chatlog.get('session_context', {})
-            reusability_scope_map = session_context.get('reusability_scope', {})
+        # EXT-012a: Validate rules is dict
+        if not isinstance(chatlog['rules'], dict):
+            print(f"  ERROR: 'rules' field must be dict, got {type(chatlog['rules'])}")
+            return False
 
-            # EXT-050, EXT-050a: Process in atomic transaction (no explicit BEGIN)
-            # sqlite3 module automatically starts transaction
+        # EXT-012b: Validate categories are lists
+        for category in ['decisions', 'constraints', 'invariants']:
+            if category in chatlog['rules'] and not isinstance(chatlog['rules'][category], list):
+                print(f"  ERROR: rules['{category}'] must be list, got {type(chatlog['rules'][category])}")
+                return False
 
-            # Collect all rules to insert
-            rules_to_insert = []
+        return True
 
-            # EXT-020: Extract from all categories
-            for category_key in ['decisions', 'constraints', 'invariants']:
-                category_rules = rules.get(category_key, [])
+    def process_chatlog(self, chatlog_path):
+        """EXT-050: Process single chatlog in atomic transaction"""
+        print(f"\nProcessing: {chatlog_path.name}")
 
-                # EXT-012b: Validate category is a list
-                if not isinstance(category_rules, list):
-                    print(f"  WARNING: {category_key} must be list, got {type(category_rules).__name__}, skipping")
-                    continue
+        # Load chatlog
+        try:
+            with open(chatlog_path) as f:
+                chatlog = yaml.safe_load(f)
+        except Exception as e:
+            print(f"  ERROR: Failed to load YAML: {e}")
+            return False
 
-                # Process each rule with index for scope resolution
-                for rule_index, rule in enumerate(category_rules):
-                    # EXT-021: Filter by confidence threshold
-                    confidence = rule.get('confidence', 0.0)
+        # EXT-013: Validate before processing
+        if not self.validate_chatlog(chatlog, chatlog_path):
+            print(f"  SKIPPED: Validation failed")
+            return False
+
+        # EXT-065: Load reusability scope map
+        session_context = chatlog.get('session_context', {})
+        reusability_scope_map = session_context.get('reusability_scope', {})
+
+        try:
+            # EXT-050a: No explicit BEGIN - sqlite3 auto-starts transactions
+
+            # Insert chatlog record
+            chatlog_id = chatlog['chatlog_id']
+            timestamp = chatlog['timestamp']
+            schema_version = chatlog['schema_version']
+            agent = chatlog.get('agent', 'unknown')
+            processed_at = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+
+            self.conn.execute(
+                """INSERT INTO chatlogs (chatlog_id, filename, timestamp, schema_version, agent, processed_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (chatlog_id, chatlog_path.name, timestamp, schema_version, agent, processed_at)
+            )
+
+            # EXT-020: Extract rules from categories
+            rules_extracted = 0
+            categories = {
+                'decisions': 'decision',
+                'constraints': 'constraint',
+                'invariants': 'invariant'
+            }
+
+            for category_key, rule_type in categories.items():
+                category_rules = chatlog['rules'].get(category_key, [])
+
+                for rule_index, rule_data in enumerate(category_rules):
+                    # EXT-021: Confidence threshold
+                    confidence = rule_data.get('confidence', 1.0)
                     if confidence < 0.5:
-                        # EXT-022: Log filtered rules
-                        print(f"  Filtered: {rule.get('topic', 'unknown')} (confidence={confidence})")
+                        print(f"  Filtered: {rule_type} '{rule_data.get('topic', 'unknown')}' (confidence {confidence})")
                         self.stats['filtered_rules'] += 1
                         continue
 
-                    # Generate unique rule ID
-                    rule_id = self.get_next_rule_id(category_key)
+                    # Generate rule ID
+                    rule_id = self.get_next_rule_id(rule_type)
 
-                    # Get rule type prefix
-                    type_map = {'decisions': 'ADR', 'constraints': 'CON', 'invariants': 'INV'}
-                    rule_type = type_map[category_key]
+                    # EXT-033: Normalize title
+                    title = self.normalize_title(rule_data.get('topic', 'untitled'))
 
-                    # EXT-033, EXT-034: Transform fields
-                    title = self.normalize_title(rule.get('topic', 'untitled'))
-                    description = rule.get('rationale', '')
-                    domain = rule.get('domain', '')
+                    # EXT-034: Description from rationale
+                    description = rule_data.get('rationale', '')
 
                     # EXT-066: Resolve reusability scope
-                    scope = self.resolve_reusability_scope(category_key, rule_index, reusability_scope_map)
+                    scope = resolve_reusability_scope(category_key, rule_index, reusability_scope_map)
 
-                    # Build metadata JSON
+                    # Build metadata
                     metadata = {'reusability_scope': scope}
 
-                    # Add category-specific metadata fields
+                    # Category-specific metadata
                     if category_key == 'decisions':
-                        metadata['alternatives_rejected'] = rule.get('alternatives_rejected', [])
+                        metadata['alternatives_rejected'] = rule_data.get('alternatives_rejected', [])
                     elif category_key == 'constraints':
-                        metadata['validation_method'] = rule.get('validation_method', '')
+                        metadata['validation_method'] = rule_data.get('validation_method', '')
 
-                    # RREL-004: Extract relationships if present
-                    if 'relationships' in rule:
+                    # RREL-004: Extract relationships
+                    if 'relationships' in rule_data:
                         metadata['relationships'] = [
                             {
                                 'type': rel['type'],
                                 'target': rel['target'],
                                 'rationale': rel['rationale'],
-                                'created_at': chatlog.get('metadata', {}).get('captured_at', chatlog['timestamp'])
+                                'created_at': timestamp
                             }
-                            for rel in rule['relationships']
+                            for rel in rule_data['relationships']
                         ]
 
-                    # RREL-008a: Extract implementation_refs if present
-                    if 'implementation_refs' in rule:
+                    # RREL-008a: Extract implementation references
+                    if 'implementation_refs' in rule_data:
                         metadata['implementation_refs'] = [
                             {
                                 'type': ref['type'],
                                 'file': ref['file'],
                                 'lines': ref.get('lines'),
                                 'role_description': ref['role_description'],
-                                'created_at': chatlog.get('metadata', {}).get('captured_at', chatlog['timestamp'])
+                                'created_at': timestamp
                             }
-                            for ref in rule['implementation_refs']
+                            for ref in rule_data['implementation_refs']
                         ]
 
-                    # Create rule record
+                    # Prepare rule record
                     rule_record = {
                         'id': rule_id,
-                        'type': rule_type,
+                        'type': type_map_db[rule_type],
                         'title': title,
                         'description': description,
-                        'domain': domain,
+                        'domain': rule_data.get('domain', ''),
                         'confidence': confidence,
-                        'salience': None,  # Will be set by assign_default_salience
                         'tags_state': 'needs_tags',  # EXT-041
                         'lifecycle': 'active',
-                        'tags': '[]',  # EXT-040: Empty tags array
-                        'chatlog_id': chatlog['chatlog_id'],
+                        'tags': '[]',  # EXT-040
+                        'chatlog_id': chatlog_id,
                         'created_at': datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
-                        'metadata': metadata
+                        'salience': rule_data.get('salience')  # May be None
                     }
 
-                    # EXT-091, EXT-092: Assign salience
-                    self.assign_default_salience(rule_record)
+                    # EXT-091, EXT-092: Assign default salience
+                    self.assign_default_salience(rule_record, metadata)
 
-                    rules_to_insert.append(rule_record)
+                    # Insert rule
+                    self.conn.execute(
+                        """INSERT INTO rules
+                           (id, type, title, description, domain, confidence, tags_state, lifecycle,
+                            tags, chatlog_id, created_at, metadata, salience)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (rule_record['id'], rule_record['type'], rule_record['title'],
+                         rule_record['description'], rule_record['domain'], rule_record['confidence'],
+                         rule_record['tags_state'], rule_record['lifecycle'], rule_record['tags'],
+                         rule_record['chatlog_id'], rule_record['created_at'],
+                         json.dumps(metadata) if metadata else None, rule_record['salience'])
+                    )
 
-                    # Update statistics
-                    self.stats['total_rules'] += 1
-                    self.stats['rules_by_type'][rule_type] += 1
+                    rules_extracted += 1
+                    self.stats['rules_by_type'][type_map_db[rule_type]] += 1
                     self.stats['total_confidence'] += confidence
 
-            # EXT-023: Mark as processed even if no qualifying rules
-            if len(rules_to_insert) == 0:
-                print(f"  No qualifying rules (all filtered or no rules)")
-            else:
-                print(f"  Extracted {len(rules_to_insert)} rules")
-
-            # Insert chatlog record (EXT-060)
-            self.conn.execute(
-                """INSERT INTO chatlogs (chatlog_id, filename, timestamp, schema_version, agent, processed_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    chatlog['chatlog_id'],
-                    chatlog_path.name,
-                    chatlog['timestamp'],
-                    chatlog['schema_version'],
-                    chatlog.get('agent', 'unknown'),
-                    datetime.now(UTC).isoformat().replace('+00:00', 'Z')
-                )
-            )
-
-            # Insert rule records
-            for rule_record in rules_to_insert:
-                metadata_json = json.dumps(rule_record['metadata']) if rule_record['metadata'] else None
-
-                self.conn.execute(
-                    """INSERT INTO rules
-                       (id, type, title, description, domain, confidence, salience, tags_state,
-                        lifecycle, tags, chatlog_id, created_at, metadata)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        rule_record['id'],
-                        rule_record['type'],
-                        rule_record['title'],
-                        rule_record['description'],
-                        rule_record['domain'],
-                        rule_record['confidence'],
-                        rule_record['salience'],
-                        rule_record['tags_state'],
-                        rule_record['lifecycle'],
-                        rule_record['tags'],
-                        rule_record['chatlog_id'],
-                        rule_record['created_at'],
-                        metadata_json
-                    )
-                )
-
-            # EXT-050, EXT-051: Commit transaction
+            # EXT-051: Commit transaction
             self.conn.commit()
 
+            # EXT-070: Report progress
+            print(f"  Extracted {rules_extracted} rules")
             self.stats['total_chatlogs'] += 1
+            self.stats['total_rules'] += rules_extracted
+
             return True
 
         except Exception as e:
-            # EXT-052, EXT-053: Rollback on failure, log and continue
-            print(f"  ERROR: Failed to process chatlog: {e}", file=sys.stderr)
+            # EXT-052, EXT-053: Rollback and continue
             self.conn.rollback()
-            self.stats['skipped_chatlogs'] += 1
+            print(f"  ERROR: Transaction failed: {e}")
             return False
 
     def run(self):
-        """Main extraction workflow (EXT-001-005, EXT-070-072)"""
-        print("\nInitializing database...")
-        self.initialize_database()
+        """EXT-001: Main extraction process"""
+        print("Starting chatlog extraction...")
+
+        # EXT-006: Ensure database exists
+        self.ensure_database()
+
+        # Connect to database
+        self.connect_database()
 
         # EXT-004: Get unprocessed chatlogs
-        print("\nScanning for unprocessed chatlogs...")
         unprocessed = self.get_unprocessed_chatlogs()
+        print(f"\nFound {len(unprocessed)} unprocessed chatlog(s)")
 
         if not unprocessed:
-            # EXT-005: Success when no unprocessed chatlogs remain
             print("No unprocessed chatlogs found.")
-            self.print_summary()
             return 0
 
-        print(f"Found {len(unprocessed)} unprocessed chatlog(s)")
-
-        # EXT-002: Process in chronological order (already sorted)
+        # Process each chatlog
         for chatlog_path in unprocessed:
             self.process_chatlog(chatlog_path)
 
-        # EXT-071: Print summary
-        self.print_summary()
-
-        # EXT-072: Exit with success (0) or failure (1)
-        if self.stats['skipped_chatlogs'] > 0:
-            print(f"\nWARNING: {self.stats['skipped_chatlogs']} chatlog(s) skipped due to errors")
-            return 1
+        # EXT-071: Summary
+        print("\n" + "="*70)
+        print("Extraction Summary:")
+        print(f"  Total chatlogs processed: {self.stats['total_chatlogs']}")
+        print(f"  Total rules extracted: {self.stats['total_rules']}")
+        print(f"  Rules by type:")
+        for rule_type, count in self.stats['rules_by_type'].items():
+            print(f"    {rule_type}: {count}")
+        if self.stats['total_rules'] > 0:
+            avg_conf = self.stats['total_confidence'] / self.stats['total_rules']
+            print(f"  Average confidence: {avg_conf:.2f}")
+        if self.stats['filtered_rules'] > 0:
+            print(f"  Filtered rules (confidence < 0.5): {self.stats['filtered_rules']}")
 
         return 0
 
-    def print_summary(self):
-        """Print extraction summary (EXT-071)"""
-        print("\n" + "="*70)
-        print("EXTRACTION SUMMARY")
-        print("="*70)
-        print(f"Total chatlogs processed: {self.stats['total_chatlogs']}")
-        print(f"Total rules extracted:    {self.stats['total_rules']}")
-        print(f"  Decisions (ADR):        {self.stats['rules_by_type']['ADR']}")
-        print(f"  Constraints (CON):      {self.stats['rules_by_type']['CON']}")
-        print(f"  Invariants (INV):       {self.stats['rules_by_type']['INV']}")
 
-        if self.stats['total_rules'] > 0:
-            avg_confidence = self.stats['total_confidence'] / self.stats['total_rules']
-            print(f"Average confidence:       {avg_confidence:.2f}")
-
-        if self.stats['filtered_rules'] > 0:
-            print(f"\nFiltered rules (low confidence): {self.stats['filtered_rules']}")
-
-        if self.stats['skipped_chatlogs'] > 0:
-            print(f"Skipped chatlogs (errors): {self.stats['skipped_chatlogs']}")
+# Type mapping for database
+type_map_db = {
+    'decision': 'ADR',
+    'constraint': 'CON',
+    'invariant': 'INV'
+}
 
 
 def main():
-    """Transform chatlogs into database rules with validation and provenance"""
-    print("Context Engine - ETL Extract")
+    """EXT-001: Transform chatlogs into database rules with validation and provenance"""
+    print("Context Engine - Extract Module")
     print("="*70)
 
     # Load configuration
@@ -539,7 +521,10 @@ def main():
 
     # Run extraction
     extractor = ChatlogExtractor(config)
-    return extractor.run()
+    result = extractor.run()
+
+    # EXT-072: Exit with success (0) or failure (1)
+    return result
 
 
 if __name__ == '__main__':

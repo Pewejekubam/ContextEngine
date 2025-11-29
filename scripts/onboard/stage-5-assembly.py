@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 """
-Stage 5: Assemble Final Onboard Artifact (v2.3.0)
+Stage 5: Assemble Final Onboard Artifact
 Merges selections into onboard-root.yaml using domain-indexed template
 
 Constraints: ONB-042, ONB-043, ONB-045 to ONB-047, ONB-053 to ONB-055, ONB-064,
              ONB-070, ONB-070a, ONB-070b, ONB-071, ONB-071a, ONB-072, ONB-073, ONB-073a,
-             RREL-007, RREL-007a, RREL-007b, RREL-007c (Spec 73 Phase 3)
-
-v2.3.0: Added relationship cross-references and implementation reference extraction
-v2.2.1: Fixed primary domain assignment to use rule['domain'] field
-v2.2.0: Implemented domain-indexed output structure with navigation anchors
+             RREL-007, RREL-007a, RREL-007b, RREL-007c
 """
 
 import sqlite3
@@ -556,6 +552,23 @@ domain_sections = render_domain_sections(domain_groups, vocabulary, conn, rules_
 # RREL-007: Close database connection after rendering (kept open for relationship queries)
 conn.close()
 
+# RREL-009a: Static operational layer content for Getting Started section
+essential_commands = """- `/ce-capture` - Capture current session knowledge to database
+- `/ce-extract` - Extract rules from chatlogs (ADRs, constraints, invariants)
+- `/ce-tag-optimize` - Optimize tags across rules using vocabulary
+- `make onboard-generate` - Regenerate this onboarding artifact"""
+
+key_directories = """- `data/` - Rules database and chatlogs
+- `config/` - Tag vocabulary and deployment configuration
+- `docs/` - Project specifications and architectural documentation
+- `.claude/commands/` - Slash command definitions"""
+
+rule_type_legend = """- **ADR** (Architectural Decision Record): Design decisions with rationale
+- **CON** (Constraint): Hard requirements that MUST be followed
+- **INV** (Invariant): System properties that NEVER change
+- **Salience**: Importance score (0.0-1.0, higher = more critical)
+- **Composite Score**: Weighted ranking (salience + confidence + recency + scope)"""
+
 # ONB-042: Variable substitution for ${variable} format
 template = template.replace("${version}", version)
 template = template.replace("${timestamp}", timestamp)
@@ -566,6 +579,9 @@ template = template.replace("${domain_sections}", domain_sections)
 template = template.replace("${last_commit_hash}", last_commit_hash)
 template = template.replace("${chatlog_count}", str(chatlog_count))
 template = template.replace("${latest_chatlog_date}", latest_chatlog_date)
+template = template.replace("${essential_commands}", essential_commands)
+template = template.replace("${key_directories}", key_directories)
+template = template.replace("${rule_type_legend}", rule_type_legend)
 
 final_content = template
 

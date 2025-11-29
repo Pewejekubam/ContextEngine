@@ -95,16 +95,16 @@ cd /path/to/your/project
 curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
 ```
 
-**Or download a specific version** (v3.3.0):
+**Or download a specific version** (v3.4.0):
 
 Using curl:
 ```bash
-curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
+curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.4.0/context-engine-runtime-v3.4.0-20251129-111720Z.tar
 ```
 
 Using wget:
 ```bash
-wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
+wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.4.0/context-engine-runtime-v3.4.0-20251129-111720Z.tar
 ```
 
 **Extract:**
@@ -158,7 +158,6 @@ After installation, open your project in **Claude Code** and follow these steps:
 ├── schema/            # SQLite schema
 ├── scripts/           # Python/shell utilities
 ├── templates/         # Prompt templates
-├── setup.sh           # Configuration script
 └── Makefile           # Workflow automation
 ```
 
@@ -203,10 +202,7 @@ Your local configuration in `config/` is preserved.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Currently planning:
-- v3.2.0 (Q2 2025) - Domain-specific onboarding, validation, conflict detection
-- v3.3.0 (Q3 2025) - Multi-AI support, GitHub Actions, community extensions
-- v3.4.0 (Q4 2025) - Cloud sync, web UI, enhanced collaboration
+See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Current release is **v3.4.0** (November 2025).
 
 Have ideas? [Start a discussion](https://github.com/Pewejekubam/ContextEngine/discussions) to suggest features!
 

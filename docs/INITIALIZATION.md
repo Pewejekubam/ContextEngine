@@ -32,10 +32,8 @@ Context Engine initialization is a **one-shot, automated process** that configur
 - Reports discovered domains with evidence
 
 **Command**:
-
-Ask Claude:
-```
-Please process .context-engine-init.md
+```bash
+Ask Claude: "Please process .context-engine-init.md"
 ```
 
 ### Upgrade (Compatible Versions)
@@ -50,10 +48,8 @@ Please process .context-engine-init.md
 - Reports what was preserved and updated
 
 **Command**:
-
-Ask Claude:
-```
-Please process .context-engine-init.md
+```bash
+Ask Claude: "Please process .context-engine-init.md"
 ```
 
 ### Migration Required
@@ -67,10 +63,8 @@ Please process .context-engine-init.md
 - Exits without running setup (you must migrate first)
 
 **Command**:
-
-Ask Claude:
-```
-Please process .context-engine-init.md
+```bash
+Ask Claude: "Please process .context-engine-init.md"
 ```
 
 After completing migration steps, re-run initialization.
@@ -169,11 +163,11 @@ Here's what initialization discovers for a typical ETL project:
 
 ## Customizing Discovered Domains
 
-After initialization, you can refine the vocabulary from your `.context-engine/` directory:
+After initialization, you can refine the vocabulary:
 
 ### Reviewing Discovered Domains
 
-Check `config/tag-vocabulary.yaml` (from the `.context-engine` directory):
+Check `config/tag-vocabulary.yaml`:
 
 ```yaml
 tier_1_domains:
@@ -258,13 +252,11 @@ If discovery produced incorrect results:
 
 **Symptom**: After initialization, domains are still `__DOMAIN_1__`, etc.
 
-**Why**: Initialization wasn't run, or setup.sh was run directly.
+**Why**: Initialization wasn't run, or `ce-init.sh --setup` was run directly without vocabulary generation.
 
 **Solution**:
-
-Ask Claude:
-```
-Please process .context-engine-init.md
+```bash
+Ask Claude: "Please process .context-engine-init.md"
 ```
 
 ---
@@ -275,14 +267,12 @@ Please process .context-engine-init.md
 
 If you manually corrupted configs (copied .example files before running init):
 
-Delete corrupted configs:
 ```bash
+# Delete corrupted configs
 rm config/deployment.yaml config/tag-vocabulary.yaml .claude/commands/ce-capture.md
-```
 
-Re-run initialization - Ask Claude:
-```
-Please process .context-engine-init.md
+# Re-run initialization
+# Ask Claude: "Please process .context-engine-init.md"
 ```
 
 ### Failed Fresh Install
@@ -291,7 +281,7 @@ If initialization failed mid-flight:
 
 1. Re-run initialization - the system has **self-healing**:
    - Detects partial state as upgrade scenario
-   - Re-runs setup.sh to complete installation
+   - Re-runs `ce-init.sh --setup` to complete installation
    - No explicit rollback needed
 
 ---

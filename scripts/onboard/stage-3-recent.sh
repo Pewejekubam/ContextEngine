@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 3: Curate Recent Activity (ADRs + Patterns) (v2.3.0)
+# Stage 3: Curate Recent Activity (ADRs + Patterns)
 # Constraints: ONB-041, ONB-042, ONB-044, ONB-057, ONB-063, ONB-066
 
 set -e

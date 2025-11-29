@@ -14,43 +14,22 @@ engineering decisions, constraints, and architectural knowledge across projects.
 
 ## Installation
 
-1. Download and extract the distribution:
-
-   **Download latest release automatically:**
+1. Extract the distribution:
    ```bash
-   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
-   ```
-
-   **Or download a specific version** (v3.3.0):
-
-   Using curl:
-   ```bash
-   curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
-   ```
-
-   Using wget:
-   ```bash
-   wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.3.0/context-engine-runtime-v3.3.0-20251124-130820Z.tar
-   ```
-
-   Extract and enter directory:
-   ```bash
-   tar -xf context-engine-runtime-*.tar
+   tar -xf context-engine-runtime-v3.4.0.tar
    cd .context-engine
    ```
 
 2. **First-time initialization** (discovers project-specific domains):
-
-   Ask Claude:
-   ```
-   Please process .context-engine-init.md
+   ```bash
+   Ask Claude: "Please process .context-engine-init.md"
    ```
 
    The initialization prompt will:
    - Detect installation state (fresh install, upgrade, or migration)
    - Discover project domains automatically (fresh install)
    - Generate project-specific vocabulary
-   - Run setup.sh to configure paths and database
+   - Configure paths and initialize the database
    - Preserve existing configs (upgrades)
 
    See `docs/INITIALIZATION.md` for detailed guide.
@@ -182,16 +161,20 @@ This runs: extract → optimize-tags → validation
 Located at `config/deployment.yaml`. Key settings:
 
 ```yaml
-external:
-  project_root: $HOME/my-project
-  context_engine_home: $HOME/my-project/.context-engine
+paths:
+  project_root: /path/to/your/project
+  context_engine_home: /path/to/your/project/.context-engine
+  commands_dir: /path/to/your/project/.claude/commands
 
-internal:
-  database_path: data/rules.db
+structure:
   chatlogs_dir: data/chatlogs
+  database_path: data/rules.db
+
+behavior:
+  rule_id_format: "{TYPE}-{NNNNN}"
 ```
 
-Updated automatically by `setup.sh`.
+Updated automatically during initialization.
 
 ### tag-vocabulary.yaml
 
@@ -221,8 +204,8 @@ See `docs/UPGRADE.md` for version migration instructions.
 **Database not found:**
 ```bash
 make database-status
-# If missing, setup.sh should have created it
-./setup.sh
+# If missing, re-run initialization
+bash commands/ce-init.sh --setup
 ```
 
 **Chatlogs not processing:**
