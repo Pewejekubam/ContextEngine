@@ -6,25 +6,30 @@ This guide covers upgrading your existing Context Engine installation to a newer
 
 ## Compatibility Check
 
-The setup script automatically checks schema compatibility when you run it.
+**Before upgrading**, backup your data and optionally check schema compatibility:
 
-**Before upgrading:**
-
-1. Check your current version:
+1. Backup your database:
    ```bash
-   sqlite3 data/rules.db "SELECT value FROM schema_metadata WHERE key='schema_version'"
-   ```
-
-2. Backup your database:
-   ```bash
+   cd .context-engine
    cp data/rules.db data/rules.db.backup_$(date +%Y%m%d_%H%M%S)
    ```
 
-3. Backup your configurations:
+2. Backup your configurations:
    ```bash
    cp config/deployment.yaml deployment.yaml.backup
    cp config/tag-vocabulary.yaml tag-vocabulary.yaml.backup
    ```
+
+3. (Optional) Check schema compatibility before upgrading:
+   ```bash
+   # Your current schema version
+   sqlite3 data/rules.db "SELECT value FROM schema_metadata WHERE key='schema_version'"
+
+   # Schema version in the new package (after git pull or tar extract)
+   grep -oP 'Context Engine Database Schema v\K[0-9.]+' schema/schema.sql
+   ```
+
+   If versions differ, check the [Version-Specific Migrations](#version-specific-migrations) section below for migration steps. The `/ce-init` command will also detect and report compatibility issues.
 
 ---
 
