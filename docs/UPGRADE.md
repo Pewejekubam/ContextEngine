@@ -30,7 +30,70 @@ The setup script automatically checks schema compatibility when you run it.
 
 ## Upgrade Process
 
-### Automated Upgrade with Initialization Prompt (Recommended)
+Choose the upgrade method that matches your installation type.
+
+### Method 1: Git Clone Upgrade
+
+If you installed via `git clone`, upgrading is straightforward:
+
+1. **Pull the latest changes:**
+   ```bash
+   cd .context-engine
+   git pull origin main
+   ```
+
+2. **Run initialization to apply any updates:**
+   ```bash
+   Ask Claude: "Please process commands/ce-init.md"
+   ```
+
+   The initialization will:
+   - Detect existing deployment.yaml (upgrade mode)
+   - Check schema version compatibility
+   - Preserve your configurations and data
+   - Report migration requirements if versions incompatible
+
+**Handling local customizations:**
+
+If you've modified files tracked by git, you have several options:
+
+- **Stash changes temporarily:**
+  ```bash
+  git stash
+  git pull origin main
+  git stash pop
+  ```
+
+- **Keep changes on a custom branch:**
+  ```bash
+  git checkout -b my-customizations
+  # Make your changes
+  git commit -m "Local customizations"
+
+  # To upgrade later:
+  git checkout main
+  git pull origin main
+  git checkout my-customizations
+  git rebase main
+  ```
+
+- **Review conflicts manually:**
+  ```bash
+  git pull origin main
+  # Resolve any conflicts in your editor
+  git add .
+  git commit -m "Merge upstream changes"
+  ```
+
+**Note:** Your `config/` directory files (deployment.yaml, tag-vocabulary.yaml) and `data/` directory are typically not tracked by git when you customize them, so they're preserved automatically.
+
+---
+
+### Method 2: Tarball Upgrade
+
+If you installed via tarball, follow these steps.
+
+#### Automated Upgrade with Initialization Prompt (Recommended)
 
 The initialization prompt handles upgrades automatically:
 
@@ -42,7 +105,7 @@ The initialization prompt handles upgrades automatically:
 
 2. Run initialization (detects upgrade automatically):
    ```bash
-   Ask Claude: "Please process .context-engine-init.md"
+   Ask Claude: "Please process commands/ce-init.md"
    ```
 
    The prompt will:
@@ -53,7 +116,7 @@ The initialization prompt handles upgrades automatically:
    - Run `ce-init.sh --setup` to reconfigure paths
    - Report migration requirements if versions incompatible
 
-### Manual Upgrade (Fallback)
+#### Manual Tarball Upgrade (Fallback)
 
 If you prefer manual control:
 
@@ -135,7 +198,38 @@ If you prefer manual control:
 
 ## Rollback Procedure
 
-If you encounter issues after upgrading:
+If you encounter issues after upgrading, follow the rollback procedure for your installation type.
+
+### Git Clone Rollback
+
+1. **Check out the previous version:**
+   ```bash
+   cd .context-engine
+   git log --oneline -10  # Find the commit before upgrade
+   git checkout <previous-commit-hash>
+   ```
+
+   Or if you know the version tag:
+   ```bash
+   git checkout v3.3.0  # Replace with your previous version
+   ```
+
+2. **Restore your backed-up database** (if needed):
+   ```bash
+   cp rules.db.backup_<timestamp> .context-engine/data/rules.db
+   ```
+
+3. **Re-run setup:**
+   ```bash
+   bash commands/ce-init.sh --setup
+   ```
+
+4. **Return to main branch** when ready to try upgrading again:
+   ```bash
+   git checkout main
+   ```
+
+### Tarball Rollback
 
 1. Stop using the new version
 
