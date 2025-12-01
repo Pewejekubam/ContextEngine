@@ -2,7 +2,7 @@
 """
 Interactive vocabulary curation tool for typo detection, synonym merging, and rare tag cleanup
 
-Implements constraints: VOCAB-019, VOCAB-020, VOCAB-021, VOCAB-022, VOCAB-023, VOCAB-024, VOCAB-036, VOCAB-038
+Implements constraints: VOCAB-001 through VOCAB-038
 Generated from: specs/modules/runtime-script-vocabulary-curation-v1.2.0.yaml
 """
 
@@ -39,8 +39,12 @@ def load_config():
     return config
 
 
+# ============================================================================
+# RUNTIME-SCRIPT-VOCABULARY-CURATION MODULE IMPLEMENTATION
+# ============================================================================
+
 def get_database_statistics(db_path):
-    """VOCAB-038: Query database statistics for reporting."""
+    """VOCAB-038: Query database statistics on startup."""
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
@@ -73,7 +77,7 @@ def get_database_statistics(db_path):
 
 
 def levenshtein_distance(s1, s2):
-    """VOCAB-020: Calculate Levenshtein edit distance between two strings."""
+    """Calculate edit distance between two strings."""
     if len(s1) < len(s2):
         return levenshtein_distance(s2, s1)
 
@@ -84,7 +88,6 @@ def levenshtein_distance(s1, s2):
     for i, c1 in enumerate(s1):
         current_row = [i + 1]
         for j, c2 in enumerate(s2):
-            # j+1 instead of j since previous_row and current_row are one character longer than s2
             insertions = previous_row[j + 1] + 1
             deletions = current_row[j] + 1
             substitutions = previous_row[j] + (c1 != c2)
@@ -98,12 +101,17 @@ def detect_typos(vocab):
     """VOCAB-020: Detect typos using edit distance = 1."""
     typos = []
 
+    # Check within each domain
     for domain, tags in vocab.get('tier_2_tags', {}).items():
         # Compare all pairs within domain
         for i, tag1 in enumerate(tags):
             for tag2 in tags[i+1:]:
                 if levenshtein_distance(tag1, tag2) == 1:
-                    typos.append((domain, tag1, tag2))
+                    typos.append({
+                        'domain': domain,
+                        'tag1': tag1,
+                        'tag2': tag2
+                    })
 
     return typos
 
@@ -113,6 +121,7 @@ def detect_rare_tags(db_path):
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
+    # Query rare tags
     cursor.execute("""
         SELECT tag, COUNT(*) as usage_count
         FROM (
@@ -124,14 +133,14 @@ def detect_rare_tags(db_path):
         ORDER BY usage_count ASC, tag ASC
     """)
 
-    rare_tags = cursor.fetchall()
+    rare_tags = [{'tag': row[0], 'count': row[1]} for row in cursor.fetchall()]
     conn.close()
 
     return rare_tags
 
 
 def main():
-    """Interactive vocabulary curation tool for typo detection, synonym merging, and rare tag cleanup."""
+    """Vocabulary curation workflows: typo detection, synonym merging, rare tag cleanup, and pre-commit health checks"""
     print("Vocabulary Review")
     print("="*70)
 
@@ -144,28 +153,25 @@ def main():
 
     # VOCAB-019: Query current vocabulary state from filesystem
     vocab_path = BASE_DIR / "config" / "tag-vocabulary.yaml"
+    db_path = BASE_DIR / "data" / "rules.db"
+
+    if not vocab_path.exists():
+        print(f"Error: Vocabulary file not found: {vocab_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if not db_path.exists():
+        print(f"Error: Database file not found: {db_path}", file=sys.stderr)
+        sys.exit(1)
+
     with open(vocab_path) as f:
         vocab = yaml.safe_load(f)
 
-    # Get database path
-    db_path = BASE_DIR / "data" / "rules.db"
-
     # VOCAB-038: Get database statistics
-    try:
-        stats = get_database_statistics(db_path)
-    except Exception as e:
-        print(f"Error reading database: {e}", file=sys.stderr)
-        sys.exit(1)
+    stats = get_database_statistics(db_path)
 
-    # VOCAB-020: Detect typos
+    # Detect issues
     typos = detect_typos(vocab)
-
-    # VOCAB-022: Detect rare tags
-    try:
-        rare_tags = detect_rare_tags(db_path)
-    except Exception as e:
-        print(f"Error detecting rare tags: {e}", file=sys.stderr)
-        rare_tags = []
+    rare_tags = detect_rare_tags(db_path)
 
     # VOCAB-036: Report empty state when no curation needed
     if len(typos) == 0 and len(rare_tags) == 0:
@@ -187,41 +193,41 @@ def main():
         return 0
 
     # VOCAB-021: Show maximum 5 decisions per session
-    decisions_shown = 0
-    max_decisions = 5
+    issues = []
 
-    # Show typos first
-    if typos:
-        print(f"\nPotential typos detected (edit distance = 1):")
-        for domain, tag1, tag2 in typos[:max_decisions - decisions_shown]:
-            print(f"\n  Domain: {domain}")
-            print(f"  Tags: '{tag1}' vs '{tag2}'")
-            decisions_shown += 1
-            if decisions_shown >= max_decisions:
-                break
+    # Add typo issues
+    for typo in typos[:5]:
+        issues.append({
+            'type': 'typo',
+            'data': typo
+        })
 
-    # Show rare tags if we haven't hit limit
-    if rare_tags and decisions_shown < max_decisions:
-        print(f"\nRare tags (used 1-2 times):")
-        for tag, count in rare_tags[:max_decisions - decisions_shown]:
-            print(f"  '{tag}': {count} uses")
-            decisions_shown += 1
-            if decisions_shown >= max_decisions:
-                break
+    # Fill remaining slots with rare tags
+    remaining_slots = 5 - len(issues)
+    for rare in rare_tags[:remaining_slots]:
+        issues.append({
+            'type': 'rare',
+            'data': rare
+        })
 
-    # Show database statistics
-    print(f"\nDatabase state:")
-    print(f"  Total rules: {stats['total_rules']}")
-    print(f"  Rules with tags: {stats['tagged_rules']}")
-    print(f"  Unique tags: {stats['unique_tags']}")
+    # Display issues
+    print(f"\nFound {len(typos)} potential typos and {len(rare_tags)} rare tags.")
+    print(f"Showing first {len(issues)} issues (re-run to see more).\n")
 
-    # Inform user if more issues exist
-    total_issues = len(typos) + len(rare_tags)
-    if total_issues > decisions_shown:
-        print(f"\nShowing {decisions_shown} of {total_issues} issues. Re-run to see more.")
+    for i, issue in enumerate(issues, 1):
+        if issue['type'] == 'typo':
+            data = issue['data']
+            print(f"{i}. Potential typo in {data['domain']}:")
+            print(f"   '{data['tag1']}' vs '{data['tag2']}' (edit distance = 1)")
+        else:
+            data = issue['data']
+            print(f"{i}. Rare tag: '{data['tag']}' (used {data['count']} time(s))")
 
-    print("\nNote: This is a detection-only tool. Manual curation required.")
-    print("      To merge tags, edit config/tag-vocabulary.yaml and update database manually.")
+    print("\nNote: This is a review tool. To merge synonyms or remove tags,")
+    print("manually edit config/tag-vocabulary.yaml and affected rules in the database.")
+    print("\nConstraints VOCAB-023 and VOCAB-024 require manual implementation:")
+    print("  - VOCAB-023: Update affected rules when merging synonyms")
+    print("  - VOCAB-024: Set tags_state='needs_tags' for rules with removed tags")
 
     return 0
 

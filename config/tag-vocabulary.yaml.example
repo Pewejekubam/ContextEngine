@@ -19,41 +19,41 @@ schema_version: "2.0.0"
 # Valid: qbd, gnucash, data_model
 # Invalid: data-model, Data.Model, api[v2]
 tier_1_domains:
-  placeholder_domain_1:
+  __DOMAIN_1__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_2:
+  __DOMAIN_2__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_3:
+  __DOMAIN_3__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_4:
+  __DOMAIN_4__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_5:
+  __DOMAIN_5__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_6:
+  __DOMAIN_6__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_7:
+  __DOMAIN_7__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  placeholder_domain_8:
+  __DOMAIN_8__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
 
 # Tier 2: Domain-specific tags
 tier_2_tags:
-  placeholder_domain_1: []
-  placeholder_domain_2: []
-  placeholder_domain_3: []
-  placeholder_domain_4: []
-  placeholder_domain_5: []
-  placeholder_domain_6: []
-  placeholder_domain_7: []
-  placeholder_domain_8: []
+  __DOMAIN_1__: []
+  __DOMAIN_2__: []
+  __DOMAIN_3__: []
+  __DOMAIN_4__: []
+  __DOMAIN_5__: []
+  __DOMAIN_6__: []
+  __DOMAIN_7__: []
+  __DOMAIN_8__: []
 
 # Forbidden tags (rejected during validation)
 forbidden_tags:

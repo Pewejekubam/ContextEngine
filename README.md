@@ -202,7 +202,7 @@ Your local configuration in `config/` is preserved.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Current release is **v3.4.0** (November 2025).
+See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Current release is **v3.4.1** (November 2025).
 
 Have ideas? [Start a discussion](https://github.com/Pewejekubam/ContextEngine/discussions) to suggest features!
 

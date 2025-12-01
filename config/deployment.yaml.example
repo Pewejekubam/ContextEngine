@@ -22,6 +22,3 @@ behavior:
   rule_id_format: "{TYPE}-{NNNNN}"
   rule_id_padding: 5
   chatlog_schema_version: v1.14.0
-  rule_types: [ADR, CON, INV]
-  tags_state_values: [needs_tags, pending_review, refined, curated]
-  lifecycle_values: [active, superseded, deprecated, archived]

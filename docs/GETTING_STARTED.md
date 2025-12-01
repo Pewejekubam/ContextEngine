@@ -89,13 +89,33 @@ Follow the prompts to record what you learned in this session.
 
 ---
 
+## Command Options
+
+Context Engine provides two ways to run workflows:
+
+| Method | Best For | Notes |
+|--------|----------|-------|
+| **Slash commands** (`/ce-*`) | Convenience from within Claude Code | Some invoke `claude --print` (adds latency) |
+| **Make targets** | CLI, bulk operations, interactive workflows | Run from `.context-engine` directory |
+
+**Performance note:** Slash commands that invoke Claude (like `/ce-tags-optimize-all` and `/ce-onboard-generate`) have latency overhead. For bulk operations with many rules, prefer the `make` targets.
+
+---
+
 ## Core Workflows
 
 ### Extract Chatlogs to Database
 
-Process all unprocessed chatlogs and insert rules into SQLite:
+Process all unprocessed chatlogs and insert rules into SQLite.
 
+**Slash command** (from Claude Code):
+```
+/ce-extract
+```
+
+**Make target** (from terminal):
 ```bash
+cd .context-engine
 make chatlogs-extract
 ```
 
@@ -104,6 +124,7 @@ make chatlogs-extract
 Debug chatlogs with verbose JSON validation output (for troubleshooting schema issues):
 
 ```bash
+cd .context-engine
 make chatlogs-debug
 ```
 
@@ -113,40 +134,70 @@ Or validate a specific chatlog:
 make chatlogs-validate FILE=data/chatlogs/<your-chatlog>.yaml
 ```
 
-### Optimize Tags
+### Optimize Tags (Interactive)
 
-Refine tags for rules using vocabulary-aware Claude reasoning:
+Refine tags for rules using vocabulary-aware Claude reasoning with human-in-the-loop approval.
 
+**Make target only** (interactive workflow):
 ```bash
+cd .context-engine
 make tags-optimize
 ```
 
-This opens a human-in-the-loop workflow where you approve/reject tag suggestions.
+This opens an interactive session where you approve/reject tag suggestions one by one. Not available as a slash command due to the interactive nature.
+
+### Optimize Tags (Batch)
+
+Auto-approve tags meeting quality thresholds (confidence ≥0.70, coherence ≥0.30).
+
+**Slash command** (from Claude Code):
+```
+/ce-tags-optimize-all
+```
+
+**Make target** (from terminal):
+```bash
+cd .context-engine
+make tags-optimize-auto
+```
+
+**Note:** For large rule sets, the `make` target is faster. The slash command invokes `claude --print` for each rule, which adds latency.
 
 ### View Statistics
 
 Check database status and tag usage:
 
 ```bash
+cd .context-engine
 make database-status  # Show rule counts by type and tags_state
 make tags-stats       # Display tag frequency histogram
 ```
 
 ### Generate Onboarding Context
 
-Create agent onboarding YAML with recent work and curated rules:
+Create agent onboarding YAML with recent work and curated rules.
 
+**Slash command** (from Claude Code):
+```
+/ce-onboard-generate
+```
+
+**Make target** (from terminal):
 ```bash
+cd .context-engine
 make onboard-generate
 ```
 
 Output: `onboard-root.yaml` in your project root.
+
+**Note:** This runs a 5-stage pipeline with multiple Claude invocations. The `make` target provides better progress visibility for large knowledge bases.
 
 ### Full Pipeline
 
 Run the complete ETL workflow:
 
 ```bash
+cd .context-engine
 make ci-pipeline
 ```
 
