@@ -4,17 +4,18 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 
 ---
 
-## Current Release: v3.4.0
+## Current Release: v3.4.1
 
 **Status:** Stable, feature-complete for core use cases
-**Release Date:** November 29, 2025
-**Focus:** Streamlined initialization and solid foundation
+**Release Date:** December 4, 2025
+**Focus:** Schema hardening and codebase refinement
 
-### What's New in v3.4.0
+### What's New in v3.4.1
 
-- Integrated setup.sh into ce-init.sh for streamlined initialization
-- Single CLI tool (`ce-init.sh --setup`) handles all deployment configuration
-- Simplified installation workflow
+- Chatlog schema version upgraded to v1.14.1
+- Explicit behavior definitions in deployment config (rule types, lifecycle states, tag states)
+- Major refactoring of ETL scripts for maintainability
+- Standardized placeholder naming in vocabulary templates
 
 ### Core Features (All Versions)
 
@@ -53,6 +54,12 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 ---
 
 ## Recent Releases
+
+### v3.4.0 (November 29, 2025)
+
+- Integrated setup.sh into ce-init.sh for streamlined initialization
+- Single CLI tool (`ce-init.sh --setup`) handles all deployment configuration
+- Simplified installation workflow
 
 ### v3.3.0 (November 24, 2025)
 
@@ -170,4 +177,4 @@ Reach out on [Discussions](https://github.com/Pewejekubam/ContextEngine/discussi
 
 ---
 
-Last updated: November 2025 | [Discussions](https://github.com/Pewejekubam/ContextEngine/discussions) | [Issues](https://github.com/Pewejekubam/ContextEngine/issues)
+Last updated: December 2025 | [Discussions](https://github.com/Pewejekubam/ContextEngine/discussions) | [Issues](https://github.com/Pewejekubam/ContextEngine/issues)

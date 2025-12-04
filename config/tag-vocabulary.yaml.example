@@ -5,7 +5,7 @@
 # This file contains STUB DOMAINS for build-time template generation only
 
 # IMPORTANT: Do not use this file directly!
-# Run '.context-engine-init.md' to discover project-specific domains
+# Run 'ce-init.md' to discover project-specific domains
 # and replace these stubs with actual domain vocabulary.
 
 # After initialization, tier_1_domains will contain your project's
@@ -19,41 +19,41 @@ schema_version: "2.0.0"
 # Valid: qbd, gnucash, data_model
 # Invalid: data-model, Data.Model, api[v2]
 tier_1_domains:
-  __DOMAIN_1__:
+  __domain_1__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_2__:
+  __domain_2__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_3__:
+  __domain_3__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_4__:
+  __domain_4__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_5__:
+  __domain_5__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_6__:
+  __domain_6__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_7__:
+  __domain_7__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
-  __DOMAIN_8__:
+  __domain_8__:
     description: "Stub domain placeholder - replaced during initialization"
     aliases: []
 
 # Tier 2: Domain-specific tags
 tier_2_tags:
-  __DOMAIN_1__: []
-  __DOMAIN_2__: []
-  __DOMAIN_3__: []
-  __DOMAIN_4__: []
-  __DOMAIN_5__: []
-  __DOMAIN_6__: []
-  __DOMAIN_7__: []
-  __DOMAIN_8__: []
+  __domain_1__: []
+  __domain_2__: []
+  __domain_3__: []
+  __domain_4__: []
+  __domain_5__: []
+  __domain_6__: []
+  __domain_7__: []
+  __domain_8__: []
 
 # Forbidden tags (rejected during validation)
 forbidden_tags:

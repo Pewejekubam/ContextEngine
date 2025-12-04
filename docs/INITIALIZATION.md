@@ -31,9 +31,9 @@ Context Engine initialization is a **one-shot, automated process** that configur
 - Initializes SQLite database
 - Reports discovered domains with evidence
 
-**Command**:
-```bash
-Ask Claude: "Please process .context-engine-init.md"
+**Command** (ask Claude):
+```
+Please process commands/ce-init.md
 ```
 
 ### Upgrade (Compatible Versions)
@@ -47,9 +47,9 @@ Ask Claude: "Please process .context-engine-init.md"
 - Re-runs setup if needed
 - Reports what was preserved and updated
 
-**Command**:
-```bash
-Ask Claude: "Please process .context-engine-init.md"
+**Command** (ask Claude):
+```
+Please process commands/ce-init.md
 ```
 
 ### Migration Required
@@ -62,9 +62,9 @@ Ask Claude: "Please process .context-engine-init.md"
 - Provides migration guidance from `docs/UPGRADE.md`
 - Exits without running setup (you must migrate first)
 
-**Command**:
-```bash
-Ask Claude: "Please process .context-engine-init.md"
+**Command** (ask Claude):
+```
+Please process commands/ce-init.md
 ```
 
 After completing migration steps, re-run initialization.
@@ -254,9 +254,9 @@ If discovery produced incorrect results:
 
 **Why**: Initialization wasn't run, or `ce-init.sh --setup` was run directly without vocabulary generation.
 
-**Solution**:
-```bash
-Ask Claude: "Please process .context-engine-init.md"
+**Solution** (ask Claude):
+```
+Please process commands/ce-init.md
 ```
 
 ---
@@ -270,9 +270,11 @@ If you manually corrupted configs (copied .example files before running init):
 ```bash
 # Delete corrupted configs
 rm config/deployment.yaml config/tag-vocabulary.yaml .claude/commands/ce-capture.md
+```
 
-# Re-run initialization
-# Ask Claude: "Please process .context-engine-init.md"
+Then ask Claude:
+```
+Please process commands/ce-init.md
 ```
 
 ### Failed Fresh Install
@@ -301,7 +303,7 @@ If you find yourself frequently editing discovered domains, please report the pr
 ## Technical Details
 
 For technical implementation details, see:
-- `.context-engine-init.md`: The orchestration prompt (technical specification)
+- `commands/ce-init.md`: The orchestration prompt (technical specification)
 - `build/modules/install-command-environment-init.yaml`: Constraint definitions (INIT-001 through INIT-050)
 - `build/docs/03_deployment_initialization_architecture-plan-v1.1.0.md`: Architecture design document
 

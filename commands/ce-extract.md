@@ -2,19 +2,6 @@
 
 > Context Engine ETL: Transform captured chatlogs into database rules
 
-<!-- TEMPLATE_METADATA
-Template: runtime-template-etl-extract
-Version: v1.3.1
-Updated: 2025-11-15
-Variables: None (self-contained)
-
-Changelog:
-- v1.3.1 (2025-11-15): CRITICAL FIX - Added explicit working directory instruction (cd .context-engine). v1.3.0 oversimplified and lost directory context, causing agents to fail when verifying results.
-- v1.3.0 (2025-11-09): Simplified to delegate all logic to extract.py Python script. Removed redundant bash complexity (path detection, statistics querying). Python script handles everything.
-- v1.2.0 (2025-11-09): Attempted consolidation into single bash block (still had Claude Code parsing issues)
-- v1.1.0 (2025-11-06): Use subshell isolation (INIT-070 pattern)
-- v1.0.0 (2025-11-06): Initial template
-END_TEMPLATE_METADATA -->
 ## Overview
 
 Extract rules from captured chatlogs and insert them into the Context Engine database.
@@ -78,6 +65,27 @@ Close other processes accessing `rules.db` and retry.
 ### Error: "deployment.yaml not found"
 
 Run `/ce-init` to initialize Context Engine first.
+
+---
+
+## Next Steps After Extraction
+
+Once extraction completes successfully:
+
+1. **Optimize Tags**: Add semantic tags to untagged rules
+   ```bash
+   make tags-optimize
+   ```
+
+2. **View Statistics**: Check extraction results and database status
+   ```bash
+   make database-status
+   ```
+
+3. **Query Rules**: Explore extracted knowledge with SQL
+   ```bash
+   sqlite3 data/rules.db "SELECT * FROM rules LIMIT 10;"
+   ```
 
 ---
 

@@ -11,7 +11,6 @@ import json
 import sqlite3
 from pathlib import Path
 from collections import Counter
-import argparse
 
 # INV-023: Check Python version
 if sys.version_info < (3, 8):
@@ -21,7 +20,6 @@ if sys.version_info < (3, 8):
 import yaml
 
 # INV-021: Absolute paths only - read from config
-# First, determine config path relative to this script
 SCRIPT_DIR = Path(__file__).parent
 BASE_DIR = SCRIPT_DIR.parent
 CONFIG_PATH = BASE_DIR / "config" / "deployment.yaml"
@@ -30,7 +28,6 @@ CONFIG_PATH = BASE_DIR / "config" / "deployment.yaml"
 with open(CONFIG_PATH) as f:
     _config = yaml.safe_load(f)
     PROJECT_ROOT = Path(_config['paths']['project_root'])
-    # Read context_engine_home from config - allows .context-engine to be placed anywhere
     BASE_DIR = Path(_config['paths']['context_engine_home'])
 
 
@@ -41,18 +38,118 @@ def load_config():
     return config
 
 
-def main():
-    """Display tag usage statistics and frequency histogram"""
+def get_tag_statistics(db_path):
+    """
+    Calculate tag frequency statistics from database.
 
-    # Parse arguments
-    parser = argparse.ArgumentParser(
-        description='Display tag usage statistics and frequency histogram'
-    )
-    args = parser.parse_args()
+    Implements:
+    - OPT-012: Track tag reuse frequency across database
+    - OPT-013: Report tag distribution histogram
+    - OPT-014: Identify low-frequency tags for review
+    """
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
+    # Get all rules with tags
+    cursor.execute("SELECT tags FROM rules WHERE tags IS NOT NULL AND tags != '[]'")
+    rules = cursor.fetchall()
+
+    if not rules:
+        # OPT-074: No tagged rules - return None to trigger empty state message
+        return None
+
+    # Count tag frequencies (OPT-012)
+    tag_counter = Counter()
+    for rule in rules:
+        tags_list = json.loads(rule['tags'])
+        for tag in tags_list:
+            tag_counter[tag] += 1
+
+    conn.close()
+    return tag_counter
+
+
+def display_histogram(tag_counter):
+    """
+    Display visual histogram of tag frequency distribution.
+
+    Implements:
+    - OPT-018: Visual bar chart of tag frequency distribution
+    - OPT-018a: Top 30 most frequent tags with proportional bars
+    - OPT-018b: Summary with total unique tags and total instances
+    """
     print("Tag Usage Statistics")
     print("="*70)
+    print()
 
+    # OPT-018a: Top 30 most frequent tags
+    top_tags = tag_counter.most_common(30)
+
+    if not top_tags:
+        print("No tags found in database.")
+        return
+
+    # Find max frequency for bar scaling
+    max_freq = top_tags[0][1]
+
+    # Calculate bar width (proportional to frequency)
+    max_bar_width = 50
+
+    # Display bars
+    for tag, count in top_tags:
+        bar_width = int((count / max_freq) * max_bar_width)
+        bar = '█' * bar_width
+        print(f"  {tag:30s} {bar} {count}")
+
+    # OPT-018b: Summary statistics
+    print()
+    print("="*70)
+    print(f"Total unique tags: {len(tag_counter)}")
+    print(f"Total tag instances: {sum(tag_counter.values())}")
+
+    # OPT-014: Identify low-frequency tags for review
+    low_freq_tags = [tag for tag, count in tag_counter.items() if count == 1]
+    if low_freq_tags:
+        print(f"Low-frequency tags (used once): {len(low_freq_tags)}")
+
+        # Show first 10 low-frequency tags as examples
+        if len(low_freq_tags) <= 10:
+            print(f"  Examples: {', '.join(low_freq_tags)}")
+        else:
+            print(f"  Examples: {', '.join(low_freq_tags[:10])}, ... (and {len(low_freq_tags) - 10} more)")
+
+
+def get_database_statistics(db_path):
+    """Get database statistics for empty-state reporting."""
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Get counts by tags_state
+    cursor.execute("""
+        SELECT tags_state, COUNT(*) as count
+        FROM rules
+        GROUP BY tags_state
+    """)
+    state_counts = dict(cursor.fetchall())
+
+    # Get total
+    cursor.execute("SELECT COUNT(*) FROM rules")
+    total = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        'total': total,
+        'curated': state_counts.get('curated', 0),
+        'refined': state_counts.get('refined', 0),
+        'pending_review': state_counts.get('pending_review', 0),
+        'needs_tags': state_counts.get('needs_tags', 0)
+    }
+
+
+def main():
+    """Display tag frequency histogram and statistics."""
     # Load configuration
     try:
         config = load_config()
@@ -63,89 +160,33 @@ def main():
     # Get database path from config
     db_path = BASE_DIR / config['structure']['database_path']
 
-    # Connect to database
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
+    # Get tag statistics
+    tag_counter = get_tag_statistics(db_path)
 
-    # OPT-074: Check for empty state
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM rules WHERE tags IS NOT NULL AND tags != '[]'")
-    tagged_count = cursor.fetchone()[0]
-
-    if tagged_count == 0:
+    if tag_counter is None:
         # OPT-074: Empty state reporting
-        cursor.execute("SELECT COUNT(*) FROM rules")
-        total_rules = cursor.fetchone()[0]
+        stats = get_database_statistics(db_path)
 
-        cursor.execute("SELECT COUNT(*) FROM rules WHERE tags_state = 'needs_tags'")
-        needs_tags_count = cursor.fetchone()[0]
-
-        print("")
+        print("Tag Usage Statistics")
+        print("="*70)
+        print()
         print("No tagged rules in database.")
-        print("")
-        print(f"Database contains {total_rules} rules, {needs_tags_count} awaiting tag optimization.")
-        print("")
+        print()
+        print(f"Database contains {stats['total']} rules, {stats['needs_tags']} awaiting tag optimization.")
+        print()
 
-        # Guidance message
-        if total_rules == 0:
+        if stats['total'] == 0:
             print("Run 'make chatlogs-extract' to import rules from chatlogs first.")
-        elif needs_tags_count > 0:
+        elif stats['needs_tags'] > 0:
             print("Run 'make tags-optimize' or 'make tags-optimize-auto' to begin tagging.")
         else:
             print("All rules have empty tag lists. Check database integrity.")
 
-        conn.close()
         return 0
 
-    # OPT-012: Track tag reuse frequency across database
-    cursor.execute("SELECT tags FROM rules WHERE tags IS NOT NULL AND tags != '[]'")
-    rows = cursor.fetchall()
+    # Display histogram
+    display_histogram(tag_counter)
 
-    tag_counter = Counter()
-    for row in rows:
-        tags_json = row['tags']
-        try:
-            tags = json.loads(tags_json)
-            tag_counter.update(tags)
-        except (json.JSONDecodeError, TypeError):
-            # Skip malformed tag data
-            pass
-
-    # OPT-018a: Top 30 most frequent tags
-    top_tags = tag_counter.most_common(30)
-
-    if not top_tags:
-        print("\nNo tags found in database.")
-        conn.close()
-        return 0
-
-    # OPT-018: Visual bar chart of tag frequency distribution
-    max_count = top_tags[0][1] if top_tags else 0
-    max_bar_width = 50  # Maximum bar width in characters
-
-    print("")
-    for tag, count in top_tags:
-        # Calculate proportional bar width
-        bar_width = int((count / max_count) * max_bar_width) if max_count > 0 else 0
-        bar = '█' * bar_width
-        print(f"  {tag:30s} {count:4d} {bar}")
-
-    # OPT-018b: Summary statistics
-    print("")
-    print("="*70)
-    print(f"  Total unique tags: {len(tag_counter)}")
-    print(f"  Total tag instances: {sum(tag_counter.values())}")
-    print(f"  Rules with tags: {tagged_count}")
-    print(f"  Average tags per rule: {sum(tag_counter.values()) / tagged_count:.1f}")
-
-    # OPT-014: Identify low-frequency tags for review
-    low_frequency_tags = [tag for tag, count in tag_counter.items() if count == 1]
-    if low_frequency_tags:
-        print(f"  Tags used only once: {len(low_frequency_tags)}")
-        if len(low_frequency_tags) <= 10:
-            print(f"    {', '.join(sorted(low_frequency_tags))}")
-
-    conn.close()
     return 0
 
 

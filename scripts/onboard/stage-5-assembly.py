@@ -552,6 +552,24 @@ domain_sections = render_domain_sections(domain_groups, vocabulary, conn, rules_
 # RREL-007: Close database connection after rendering (kept open for relationship queries)
 conn.close()
 
+# Prepare essential commands section
+essential_commands = """- `/ce-capture` - Capture session knowledge to database
+- `/ce-onboard` - Regenerate this onboarding file
+- `/ce-tags-optimize` - Optimize rule tags using vocabulary
+- `/ce-tags-check` - Validate tag vocabulary consistency"""
+
+# Prepare key directories section
+key_directories = f"""- `{CONTEXT_ENGINE_HOME}/.claude/commands/` - Slash commands
+- `{CONTEXT_ENGINE_HOME}/config/` - Configuration files
+- `{CONTEXT_ENGINE_HOME}/data/` - Database and chatlogs
+- `{CONTEXT_ENGINE_HOME}/scripts/` - Utility scripts"""
+
+# Prepare rule type legend section
+rule_type_legend = """- **ADR** (Architectural Decision Record): Major design decisions with rationale
+- **CON** (Constraint): Hard boundaries that must not be violated
+- **INV** (Invariant): System properties that must always hold
+- **PAT** (Pattern): Reusable solutions and conventions"""
+
 # ONB-042: Variable substitution for ${variable} format
 template = template.replace("${version}", version)
 template = template.replace("${timestamp}", timestamp)
@@ -562,6 +580,9 @@ template = template.replace("${domain_sections}", domain_sections)
 template = template.replace("${last_commit_hash}", last_commit_hash)
 template = template.replace("${chatlog_count}", str(chatlog_count))
 template = template.replace("${latest_chatlog_date}", latest_chatlog_date)
+template = template.replace("${essential_commands}", essential_commands)
+template = template.replace("${key_directories}", key_directories)
+template = template.replace("${rule_type_legend}", rule_type_legend)
 
 final_content = template
 

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2025-12-04
+
+### Changed
+- Chatlog schema version upgraded to v1.14.1
+- Deployment config now includes explicit behavior definitions:
+  - `rule_types`: ADR, CON, INV
+  - `tags_state_values`: needs_tags, pending_review, refined, curated
+  - `lifecycle_values`: active, superseded, deprecated, archived
+  - `confidence_threshold`: 0.5
+- Init command reference updated: `.context-engine-init.md` → `ce-init.md`
+- Vocabulary placeholder naming standardized to lowercase (`__domain_1__`)
+
+### Improved
+- Major refactoring of ETL scripts (extract.py, optimize-tags.py, quality-classify.py, knowledge-classify.py, validate_chatlog.py)
+- Chatlog capture template restructured for clarity
+- Tags tooling updated (tags-check.py, tags-review.py, tags-stats.py)
+- Onboard assembly script enhanced (stage-5-assembly.py)
+
 ## [3.4.0] - 2025-11-29
 
 ### Changed
@@ -77,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Notes
 
+- **v3.4.1**: Schema hardening and ETL refactoring
 - **v3.4.0**: Streamlined initialization (setup.sh → ce-init.sh)
 - **v3.3.0**: Repository cleanup and release automation fixes
 - **v3.2.0**: Initial public release with full documentation
@@ -90,7 +109,8 @@ For upgrading between versions, see [docs/UPGRADE.md](docs/UPGRADE.md).
 
 ---
 
-[Unreleased]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.0...HEAD
+[Unreleased]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.1...HEAD
+[3.4.1]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.1.0...v3.2.0

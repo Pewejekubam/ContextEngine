@@ -16,13 +16,15 @@ engineering decisions, constraints, and architectural knowledge across projects.
 
 1. Extract the distribution:
    ```bash
-   tar -xf context-engine-runtime-v3.4.0.tar
+   tar -xf context-engine-runtime-v3.4.1.tar
    cd .context-engine
    ```
 
-2. **First-time initialization** (discovers project-specific domains):
-   ```bash
-   Ask Claude: "Please process .context-engine-init.md"
+2. **First-time initialization** (discovers project-specific domains).
+
+   Ask Claude:
+   ```
+   Please process commands/ce-init.md
    ```
 
    The initialization prompt will:
@@ -49,7 +51,7 @@ Context Engine captures **session knowledge** - architectural decisions, constra
 
 Run `/clear` to reset conversation context after:
 
-1. **Initialization/Setup** - After running .context-engine-init.md
+1. **Initialization/Setup** - After running commands/ce-init.md
 2. **CE Maintenance** - After fixing bugs in Context Engine itself
 3. **Context Switches** - Before switching from infrastructure to feature work
 
