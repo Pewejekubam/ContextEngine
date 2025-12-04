@@ -24,8 +24,10 @@ engineering decisions, constraints, and architectural knowledge across projects.
 
    Ask Claude:
    ```
-   Please process commands/ce-init.md
+   Please process .context-engine/commands/ce-init.md
    ```
+
+   **Important:** Always use the full path to ensure you run the version from the freshly installed package.
 
    The initialization prompt will:
    - Detect installation state (fresh install, upgrade, or migration)
@@ -51,7 +53,7 @@ Context Engine captures **session knowledge** - architectural decisions, constra
 
 Run `/clear` to reset conversation context after:
 
-1. **Initialization/Setup** - After running commands/ce-init.md
+1. **Initialization/Setup** - After running `.context-engine/commands/ce-init.md`
 2. **CE Maintenance** - After fixing bugs in Context Engine itself
 3. **Context Switches** - Before switching from infrastructure to feature work
 

@@ -33,8 +33,10 @@ Context Engine initialization is a **one-shot, automated process** that configur
 
 **Command** (ask Claude):
 ```
-Please process commands/ce-init.md
+Please process .context-engine/commands/ce-init.md
 ```
+
+**Note:** Always use the full path `.context-engine/commands/ce-init.md` to ensure you run the version from the freshly installed package.
 
 ### Upgrade (Compatible Versions)
 
@@ -49,7 +51,7 @@ Please process commands/ce-init.md
 
 **Command** (ask Claude):
 ```
-Please process commands/ce-init.md
+Please process .context-engine/commands/ce-init.md
 ```
 
 ### Migration Required
@@ -64,7 +66,7 @@ Please process commands/ce-init.md
 
 **Command** (ask Claude):
 ```
-Please process commands/ce-init.md
+Please process .context-engine/commands/ce-init.md
 ```
 
 After completing migration steps, re-run initialization.
@@ -256,7 +258,7 @@ If discovery produced incorrect results:
 
 **Solution** (ask Claude):
 ```
-Please process commands/ce-init.md
+Please process .context-engine/commands/ce-init.md
 ```
 
 ---
@@ -274,7 +276,7 @@ rm config/deployment.yaml config/tag-vocabulary.yaml .claude/commands/ce-capture
 
 Then ask Claude:
 ```
-Please process commands/ce-init.md
+Please process .context-engine/commands/ce-init.md
 ```
 
 ### Failed Fresh Install
@@ -303,7 +305,7 @@ If you find yourself frequently editing discovered domains, please report the pr
 ## Technical Details
 
 For technical implementation details, see:
-- `commands/ce-init.md`: The orchestration prompt (technical specification)
+- `.context-engine/commands/ce-init.md`: The orchestration prompt (technical specification)
 - `build/modules/install-command-environment-init.yaml`: Constraint definitions (INIT-001 through INIT-050)
 - `build/docs/03_deployment_initialization_architecture-plan-v1.1.0.md`: Architecture design document
 

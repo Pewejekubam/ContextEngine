@@ -50,11 +50,13 @@ If you installed via `git clone`, upgrading is straightforward:
    **Understanding nested repos:** When you cloned Context Engine into `.context-engine/`, it created a nested git repository that is completely independent from your project's repo. The `cd .context-engine` command enters that nested repo so git commands operate on Context Engine, not your project. Updates to Context Engine won't affect your project's git history, and vice versa.
 
 2. **Run initialization to apply any updates:**
+
+   Ask Claude:
    ```
-   /ce-init
+   Please process .context-engine/commands/ce-init.md
    ```
 
-   Since CE is already deployed, the slash command is available. The initialization will:
+   **Important:** Use the full path to ensure you run the freshly pulled version, not the potentially stale `.claude/commands/ce-init.md`. The initialization will:
    - Detect existing deployment.yaml (upgrade mode)
    - Check schema version compatibility
    - Preserve your configurations and data
@@ -111,11 +113,13 @@ The initialization prompt handles upgrades automatically:
    ```
 
 2. Run initialization (detects upgrade automatically):
+
+   Ask Claude:
    ```
-   /ce-init
+   Please process .context-engine/commands/ce-init.md
    ```
 
-   Since CE is already deployed, the slash command is available. The prompt will:
+   **Important:** Use the full path to ensure you run the freshly extracted version, not the potentially stale `.claude/commands/ce-init.md`. The prompt will:
    - Detect existing deployment.yaml (upgrade mode)
    - Check schema version compatibility
    - Preserve your configurations and data
@@ -157,8 +161,10 @@ If you prefer manual control:
    ```
 
 5. Run initialization to update paths:
+
+   Ask Claude:
    ```
-   /ce-init
+   Please process .context-engine/commands/ce-init.md
    ```
 
 ---
@@ -226,8 +232,10 @@ If you encounter issues after upgrading, follow the rollback procedure for your 
    ```
 
 3. **Re-run initialization:**
+
+   Ask Claude:
    ```
-   /ce-init
+   Please process .context-engine/commands/ce-init.md
    ```
 
 4. **Return to main branch** when ready to try upgrading again:
@@ -253,8 +261,10 @@ If you encounter issues after upgrading, follow the rollback procedure for your 
 4. Re-extract your previous version tarball
 
 5. Run initialization to reconfigure paths:
+
+   Ask Claude:
    ```
-   /ce-init
+   Please process .context-engine/commands/ce-init.md
    ```
 
 ---

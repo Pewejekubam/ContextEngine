@@ -125,8 +125,10 @@ After installation, open your project in **Claude Code** and follow these steps:
 
    Ask Claude:
    ```
-   Please process commands/ce-init.md
+   Please process .context-engine/commands/ce-init.md
    ```
+
+   **Important:** Always use the full path `.context-engine/commands/ce-init.md` to ensure you run the version from the freshly installed package, not a potentially stale copy.
 
    This analyzes your project structure and generates domain-specific configuration.
 
