@@ -171,17 +171,6 @@ After installation, open your project in **Claude Code** and follow these steps:
 - [Upgrade Guide](docs/UPGRADE.md) - Version migration instructions
 - [Distribution & Architecture](DISTRIBUTION.md) - About this repository and the build engine
 
-## Examples
-
-Real-world scenarios demonstrating Context Engine in action:
-
-- **[Simple Python Project](docs/examples/01-simple-python-project)** - Individual developer or small team starting a new project
-- **[Multi-Domain System](docs/examples/02-multi-domain-system)** - Team managing multiple interconnected services
-- **[Team Workflow Integration](docs/examples/03-team-workflow)** - Organization standardizing knowledge across projects
-- **[CI/CD Pipeline Integration](docs/examples/04-cicd-integration)** - Automating knowledge management in your workflow
-
-Choose the example that matches your use case, or start with [Example 1](docs/examples/01-simple-python-project) if you're new to Context Engine.
-
 ## Updating
 
 If installed via git clone:
