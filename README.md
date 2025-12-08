@@ -95,16 +95,16 @@ cd /path/to/your/project
 curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
 ```
 
-**Or download a specific version** (v3.4.1):
+**Or download a specific version** (v3.5.0):
 
 Using curl:
 ```bash
-curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.4.1/context-engine-runtime-v3.4.1-20251204-172220Z.tar
+curl -LO https://github.com/Pewejekubam/ContextEngine/releases/download/v3.5.0/context-engine-runtime-v3.5.0-20251208-204534Z.tar
 ```
 
 Using wget:
 ```bash
-wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.4.1/context-engine-runtime-v3.4.1-20251204-172220Z.tar
+wget https://github.com/Pewejekubam/ContextEngine/releases/download/v3.5.0/context-engine-runtime-v3.5.0-20251208-204534Z.tar
 ```
 
 **Extract:**
@@ -193,7 +193,7 @@ Your local configuration in `config/` is preserved.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Current release is **v3.4.1** (December 2025).
+See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Current release is **v3.5.0** (December 2025).
 
 Have ideas? [Start a discussion](https://github.com/Pewejekubam/ContextEngine/discussions) to suggest features!
 

@@ -8,7 +8,13 @@ Generated from: specs/modules/runtime-command-chatlog-capture-v1.14.1.yaml
 
 import sys
 import json
+import argparse
+import re
+import uuid
 from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Any, Tuple
+from difflib import get_close_matches
 
 # INV-023: Check Python version
 if sys.version_info < (3, 8):
@@ -32,54 +38,69 @@ with open(CONFIG_PATH) as f:
 
 
 def load_config():
-    """Load deployment configuration and vocabulary (CAP-066)."""
+    """Load deployment configuration and vocabulary.
+
+    Implements CAP-066: Loads vocabulary file from deployment config for domain validation.
+    """
     with open(CONFIG_PATH) as f:
         config = yaml.safe_load(f)
 
-    # Load tag vocabulary file (CAP-066, CAP-072)
+    # CAP-066: Load tag vocabulary
     vocab_path = BASE_DIR / config.get('vocabulary_file', 'config/tag-vocabulary.yaml')
     with open(vocab_path) as f:
         vocabulary = yaml.safe_load(f)
 
-    # Use domain strings as-is from vocabulary (no normalization per v1.14.1)
+    # CAP-066, v1.14.1: Use domain strings as-is from vocabulary (no normalization)
+    # Domains are strings, not Python identifiers. UUIDs with hyphens are valid domains.
     config['domain_tags'] = list(vocabulary['tier_1_domains'].keys())
 
     return config
 
 
-# ============================================================================
-# VALIDATION FUNCTIONS
-# ============================================================================
-
-def validate_uuid(uuid_str):
+def validate_uuid(value: str) -> bool:
     """Validate UUID v4 format (CAP-040b)."""
-    import re
-    # UUID v4 format: 8-4-4-4-12 hex characters
-    pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-    return bool(re.match(pattern, str(uuid_str).lower()))
+    try:
+        parsed = uuid.UUID(value, version=4)
+        return str(parsed) == value
+    except (ValueError, AttributeError):
+        return False
 
 
-def validate_timestamp(ts_str):
-    """Validate ISO 8601 UTC with Z suffix (CAP-040c)."""
-    import re
-    # ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ
+def validate_timestamp(value: str) -> bool:
+    """Validate ISO 8601 UTC timestamp with Z suffix (CAP-040c)."""
+    # Handle datetime objects from YAML parser
+    if isinstance(value, datetime):
+        # YAML parsed it as datetime - convert back to string and validate
+        value = value.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    if not isinstance(value, str):
+        return False
+
     pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
-    return bool(re.match(pattern, str(ts_str)))
+    if not re.match(pattern, value):
+        return False
+    try:
+        datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return True
+    except ValueError:
+        return False
 
 
-def validate_schema(chatlog, config, debug_mode=False):
-    """
-    Validate chatlog structure and return errors/warnings.
+def validate_schema_structure(chatlog: Dict[str, Any], config: Dict[str, Any], debug: bool = False) -> Tuple[List[Dict], List[str]]:
+    """Validate chatlog schema structure.
 
-    Implements: CAP-040 through CAP-043, CAP-040h/i/j (debug mode),
-                CAP-061 through CAP-065 (quality warnings)
+    Returns (errors, warnings) where errors block validation and warnings are informational.
 
-    Returns: (errors, warnings) tuple of lists
+    Implements:
+    - CAP-040a through CAP-040g: Schema validation
+    - CAP-040h: Schema version compatibility (debug mode only)
+    - CAP-040i: Domain vocabulary warnings (debug mode only)
+    - CAP-040j: Confidence threshold warnings (debug mode only)
     """
     errors = []
     warnings = []
 
-    # CAP-040a: Required top-level fields
+    # CAP-040a: Validate required top-level fields
     required_fields = ['chatlog_id', 'schema_version', 'timestamp', 'agent',
                       'session_duration_minutes', 'rules', 'session_context', 'artifacts']
     for field in required_fields:
@@ -92,9 +113,9 @@ def validate_schema(chatlog, config, debug_mode=False):
             })
 
     if errors:
-        return (errors, warnings)  # Early exit if top-level fields missing
+        return errors, warnings
 
-    # CAP-040b: Validate UUID v4
+    # CAP-040b: Validate chatlog_id is UUID v4
     if not validate_uuid(chatlog['chatlog_id']):
         errors.append({
             'category': 'top_level',
@@ -103,17 +124,17 @@ def validate_schema(chatlog, config, debug_mode=False):
             'message': f"Invalid UUID v4 format: {chatlog['chatlog_id']}"
         })
 
-    # CAP-040c: Validate timestamp
+    # CAP-040c: Validate timestamp is ISO 8601 UTC with Z suffix
     if not validate_timestamp(chatlog['timestamp']):
         errors.append({
             'category': 'top_level',
             'field': 'timestamp',
             'error_type': 'invalid_format',
-            'message': f"Invalid ISO 8601 UTC timestamp (must end with Z): {chatlog['timestamp']}"
+            'message': f"Invalid ISO 8601 UTC timestamp (expected YYYY-MM-DDTHH:MM:SSZ): {chatlog['timestamp']}"
         })
 
-    # CAP-040h: Debug mode - schema version compatibility check
-    if debug_mode:
+    # CAP-040h: Debug mode - validate schema version compatibility
+    if debug:
         deployed_version = config['behavior']['chatlog_schema_version']
         chatlog_version = chatlog.get('schema_version', '')
         if chatlog_version != deployed_version:
@@ -124,27 +145,38 @@ def validate_schema(chatlog, config, debug_mode=False):
                 'message': f"Schema version mismatch: chatlog has {chatlog_version}, deployed expects {deployed_version}"
             })
 
-    # CAP-022: Validate rule categories
-    rules = chatlog.get('rules', {})
-    valid_categories = ['decisions', 'constraints', 'invariants']
+    # Validate rules structure
+    if 'rules' not in chatlog or not isinstance(chatlog['rules'], dict):
+        errors.append({
+            'category': 'rules',
+            'field': 'rules',
+            'error_type': 'invalid_structure',
+            'message': "Rules must be a dictionary with decisions/constraints/invariants"
+        })
+        return errors, warnings
 
-    # Collect all rules for domain/confidence validation
+    rules = chatlog['rules']
+    valid_domains = set(config['domain_tags'])
     all_rules = []
-    for category in valid_categories:
-        category_rules = rules.get(category, [])
-        if not isinstance(category_rules, list):
+
+    # CAP-022: Validate rule categories
+    for category in ['decisions', 'constraints', 'invariants']:
+        if category not in rules:
+            continue
+
+        if not isinstance(rules[category], list):
             errors.append({
                 'category': 'rules',
-                'field': f'rules.{category}',
+                'field': category,
                 'error_type': 'invalid_type',
-                'message': f"rules.{category} must be a list"
+                'message': f"Rules category '{category}' must be a list"
             })
             continue
 
-        for idx, rule in enumerate(category_rules):
-            all_rules.append((category, idx, rule))
+        for idx, rule in enumerate(rules[category]):
+            all_rules.append(rule)
 
-            # CAP-023: Required rule fields
+            # CAP-023: Validate required fields
             required_rule_fields = ['topic', 'rationale', 'domain', 'confidence']
             for field in required_rule_fields:
                 if field not in rule:
@@ -153,22 +185,20 @@ def validate_schema(chatlog, config, debug_mode=False):
                         'index': idx,
                         'field': field,
                         'error_type': 'missing_field',
-                        'message': f"Rule at {category} index {idx}: missing {field}"
+                        'message': f"Rule at {category} index {idx}: missing required field '{field}'"
                     })
 
-            # CAP-040d: Validate domain
-            if 'domain' in rule:
-                if rule['domain'] not in config['domain_tags']:
-                    errors.append({
-                        'category': category,
-                        'index': idx,
-                        'field': 'domain',
-                        'error_type': 'invalid_value',
-                        'message': f"Rule at {category} index {idx}: domain '{rule['domain']}' not in allowed list",
-                        'value': rule['domain']
-                    })
+            # CAP-040d: Validate domain is in vocabulary
+            if 'domain' in rule and rule['domain'] not in valid_domains:
+                errors.append({
+                    'category': category,
+                    'index': idx,
+                    'field': 'domain',
+                    'error_type': 'invalid_value',
+                    'message': f"Rule at {category} index {idx}: domain '{rule['domain']}' not in allowed list {sorted(valid_domains)}"
+                })
 
-            # CAP-040e: Validate confidence range
+            # CAP-040e: Validate confidence is in [0.0, 1.0]
             if 'confidence' in rule:
                 try:
                     conf = float(rule['confidence'])
@@ -178,8 +208,7 @@ def validate_schema(chatlog, config, debug_mode=False):
                             'index': idx,
                             'field': 'confidence',
                             'error_type': 'out_of_range',
-                            'message': f"Rule at {category} index {idx}: confidence {conf} not in [0.0, 1.0]",
-                            'value': conf
+                            'message': f"Rule at {category} index {idx}: confidence {conf} not in range [0.0, 1.0]"
                         })
                 except (ValueError, TypeError):
                     errors.append({
@@ -190,7 +219,7 @@ def validate_schema(chatlog, config, debug_mode=False):
                         'message': f"Rule at {category} index {idx}: confidence must be a number"
                     })
 
-            # CAP-040f: Decision-specific fields
+            # CAP-040f: Validate decision-specific fields
             if category == 'decisions':
                 decision_fields = ['alternatives_rejected', 'context_when_applies',
                                  'context_when_not', 'tradeoffs']
@@ -201,10 +230,10 @@ def validate_schema(chatlog, config, debug_mode=False):
                             'index': idx,
                             'field': field,
                             'error_type': 'missing_field',
-                            'message': f"Rule at {category} index {idx}: missing {field}"
+                            'message': f"Rule at {category} index {idx}: missing decision field '{field}'"
                         })
 
-            # CAP-040g: Constraint-specific fields
+            # CAP-040g: Validate constraint-specific fields
             if category == 'constraints':
                 if 'validation_method' not in rule:
                     errors.append({
@@ -212,418 +241,338 @@ def validate_schema(chatlog, config, debug_mode=False):
                         'index': idx,
                         'field': 'validation_method',
                         'error_type': 'missing_field',
-                        'message': f"Rule at {category} index {idx}: missing validation_method"
+                        'message': f"Rule at {category} index {idx}: missing constraint field 'validation_method'"
                     })
+
+    # CAP-040i: Debug mode - warn about domains not in current vocabulary
+    if debug:
+        vocabulary_domains = set(config['domain_tags'])
+        for rule in all_rules:
+            if 'domain' in rule and rule['domain'] not in vocabulary_domains:
+                warnings.append(f"[MEDIUM] Domain '{rule['domain']}' not in current vocabulary tier-1 domains")
+
+    # CAP-040j: Debug mode - report rules below confidence threshold
+    if debug:
+        threshold = 0.5  # Per EXT-021
+        low_confidence_rules = [r for r in all_rules if 'confidence' in r and float(r['confidence']) < threshold]
+        if low_confidence_rules:
+            count = len(low_confidence_rules)
+            total = len(all_rules)
+            percentage = int(100 * count / total) if total > 0 else 0
+            warnings.append(f"[INFO] {count} rules ({percentage}%) below confidence threshold {threshold} - will be filtered by extract.py")
 
     # CAP-026: Validate session_context structure
-    session_ctx = chatlog.get('session_context', {})
-    required_ctx_fields = ['problem_solved', 'patterns_applied', 'anti_patterns_avoided',
-                           'conventions_established', 'reusability_scope']
-    for field in required_ctx_fields:
-        if field not in session_ctx:
+    if 'session_context' in chatlog:
+        ctx = chatlog['session_context']
+        if not isinstance(ctx, dict):
             errors.append({
                 'category': 'session_context',
-                'field': field,
-                'error_type': 'missing_field',
-                'message': f"session_context missing required field: {field}"
-            })
-
-    # CAP-026b: Validate reusability_scope structure
-    if 'reusability_scope' in session_ctx:
-        scope = session_ctx['reusability_scope']
-        if not isinstance(scope, dict):
-            errors.append({
-                'category': 'session_context',
-                'field': 'reusability_scope',
+                'field': 'session_context',
                 'error_type': 'invalid_type',
-                'message': "reusability_scope must be a dictionary"
+                'message': "session_context must be a dictionary"
             })
         else:
-            # CAP-026c/d/e: Required subfields
-            for subfield in ['project_wide', 'module_scoped', 'historical']:
-                if subfield not in scope:
+            # CAP-026b: Validate reusability_scope structure
+            if 'reusability_scope' in ctx:
+                scope = ctx['reusability_scope']
+                if not isinstance(scope, dict):
                     errors.append({
                         'category': 'session_context',
-                        'field': f'reusability_scope.{subfield}',
-                        'error_type': 'missing_field',
-                        'message': f"reusability_scope missing required field: {subfield}"
+                        'field': 'reusability_scope',
+                        'error_type': 'invalid_type',
+                        'message': "reusability_scope must be a dictionary"
                     })
-
-    # CAP-027: Validate artifacts structure
-    artifacts = chatlog.get('artifacts', {})
-    for field in ['files_modified', 'commands_executed']:
-        if field not in artifacts:
-            errors.append({
-                'category': 'artifacts',
-                'field': field,
-                'error_type': 'missing_field',
-                'message': f"artifacts missing required field: {field}"
-            })
-
-    # ========================================================================
-    # QUALITY WARNINGS (CAP-061 through CAP-065)
-    # Only run if schema validation passed
-    # ========================================================================
-
-    if not errors:
-        # CAP-040i: Domain vocabulary warnings (debug mode only)
-        if debug_mode:
-            vocabulary_domains = set(config['domain_tags'])
-            for category, idx, rule in all_rules:
-                if 'domain' in rule and rule['domain'] not in vocabulary_domains:
-                    warnings.append({
-                        'severity': 'MEDIUM',
-                        'category': category,
-                        'index': idx,
-                        'message': f"[MEDIUM] Domain '{rule['domain']}' not in current vocabulary tier-1 domains"
-                    })
-
-        # CAP-040j: Confidence threshold warnings (debug mode only)
-        if debug_mode:
-            threshold = 0.5  # Per EXT-021
-            low_confidence_rules = [r for c, i, r in all_rules if r.get('confidence', 1.0) < threshold]
-            if low_confidence_rules:
-                total_rules = len(all_rules)
-                count = len(low_confidence_rules)
-                percentage = int((count / total_rules) * 100) if total_rules > 0 else 0
-                warnings.append({
-                    'severity': 'INFO',
-                    'message': f"[INFO] {count} rules ({percentage}%) below confidence threshold {threshold} - will be filtered by extract.py"
-                })
-
-        # CAP-061: Multi-behavior pattern detection
-        multi_behavior_patterns = [
-            ('and also', 'HIGH'),
-            ('in addition', 'HIGH'),
-            ('; ', 'MEDIUM'),
-            (' and ', 'LOW')
-        ]
-
-        for category, idx, rule in all_rules:
-            if category == 'constraints':
-                topic = rule.get('topic', '').lower()
-                rationale = rule.get('rationale', '').lower()
-                combined = f"{topic} {rationale}"
-
-                for pattern, severity in multi_behavior_patterns:
-                    if pattern in combined:
-                        warnings.append({
-                            'severity': severity,
-                            'category': category,
-                            'index': idx,
-                            'message': f"[{severity}] Possible multi-behavior CON (contains '{pattern}'). Consider splitting per INV-002."
+                else:
+                    # CAP-026c, CAP-026d, CAP-026e: Validate subfields
+                    if 'project_wide' in scope and not isinstance(scope['project_wide'], list):
+                        errors.append({
+                            'category': 'session_context',
+                            'field': 'reusability_scope.project_wide',
+                            'error_type': 'invalid_type',
+                            'message': "reusability_scope.project_wide must be a list"
                         })
-                        break  # Only report highest severity match
+                    if 'module_scoped' in scope and not isinstance(scope['module_scoped'], dict):
+                        errors.append({
+                            'category': 'session_context',
+                            'field': 'reusability_scope.module_scoped',
+                            'error_type': 'invalid_type',
+                            'message': "reusability_scope.module_scoped must be a dictionary"
+                        })
+                    if 'historical' in scope and not isinstance(scope['historical'], list):
+                        errors.append({
+                            'category': 'session_context',
+                            'field': 'reusability_scope.historical',
+                            'error_type': 'invalid_type',
+                            'message': "reusability_scope.historical must be a list"
+                        })
 
-        # CAP-062: Temporal language detection
-        temporal_patterns = ['was ', 'were ', 'Phase ', 'completed', 'during ', 'after ']
-
-        for category, idx, rule in all_rules:
-            topic = rule.get('topic', '')
-            rationale = rule.get('rationale', '')
-            combined = f"{topic} {rationale}"
-
-            for pattern in temporal_patterns:
-                if pattern in combined:
-                    warnings.append({
-                        'severity': 'MEDIUM',
-                        'category': category,
-                        'index': idx,
-                        'message': f"[MEDIUM] Temporal language detected (contains '{pattern}'). May be lifecycle candidate."
-                    })
-                    break  # Only report first match
-
-        # CAP-063: Cross-domain boundary violations
-        for category, idx, rule in all_rules:
-            topic = rule.get('topic', '').lower()
-            rationale = rule.get('rationale', '').lower()
-            combined = f"{topic} {rationale}"
-
-            if 'model/' in combined and ('build/' in combined or 'context engine' in combined):
-                warnings.append({
-                    'severity': 'HIGH',
-                    'category': category,
-                    'index': idx,
-                    'message': "[HIGH] Cross-domain boundary violation: System Domain (model/) references Build Domain (build/ or context engine) per CON-00056"
-                })
-
-    return (errors, warnings)
+    return errors, warnings
 
 
-# ============================================================================
-# REMEDIATION PATTERNS (CAP-089)
-# ============================================================================
+def validate_quality(chatlog: Dict[str, Any]) -> List[str]:
+    """Run quality validators (non-blocking warnings).
 
-def remediate_fuzzy_match_domain(rule, config):
-    """Fuzzy match invalid domain to closest valid domain."""
-    from difflib import get_close_matches
-
-    invalid_domain = rule.get('domain', '')
-    valid_domains = config['domain_tags']
-
-    matches = get_close_matches(invalid_domain, valid_domains, n=1, cutoff=0.6)
-    if matches:
-        old_value = rule['domain']
-        rule['domain'] = matches[0]
-        return {'pattern': 'FUZZY_MATCH_DOMAIN', 'old': old_value, 'new': matches[0]}
-
-    return None
-
-
-def remediate_clamp_confidence(rule):
-    """Clamp confidence to [0.0, 1.0] range."""
-    conf = rule.get('confidence', 0.5)
-    old_value = conf
-
-    if conf > 1.0:
-        rule['confidence'] = 0.95
-    elif conf < 0.0:
-        rule['confidence'] = 0.5
-    else:
-        return None
-
-    return {'pattern': 'CLAMP_CONFIDENCE', 'old': old_value, 'new': rule['confidence']}
-
-
-def remediate_regenerate_uuid(chatlog):
-    """Generate new UUID v4."""
-    import uuid
-    old_value = chatlog.get('chatlog_id', '')
-    chatlog['chatlog_id'] = str(uuid.uuid4())
-    return {'pattern': 'REGENERATE_UUID', 'old': old_value, 'new': chatlog['chatlog_id']}
-
-
-def remediate_regenerate_timestamp(chatlog):
-    """Generate new ISO 8601 UTC timestamp."""
-    from datetime import datetime
-    old_value = chatlog.get('timestamp', '')
-    chatlog['timestamp'] = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-    return {'pattern': 'REGENERATE_TIMESTAMP', 'old': old_value, 'new': chatlog['timestamp']}
-
-
-def remediate_add_validation_method(rule):
-    """Add default validation_method."""
-    if 'validation_method' not in rule:
-        rule['validation_method'] = 'Code review required'
-        return {'pattern': 'ADD_VALIDATION_METHOD', 'old': None, 'new': 'Code review required'}
-    return None
-
-
-def remediate_add_reusability_scope_fields(session_context):
-    """Add missing reusability_scope subfields."""
-    fixes = []
-
-    if 'reusability_scope' not in session_context:
-        session_context['reusability_scope'] = {}
-
-    scope = session_context['reusability_scope']
-
-    if 'project_wide' not in scope:
-        scope['project_wide'] = []
-        fixes.append({'pattern': 'ADD_REUSABILITY_SCOPE_FIELDS', 'field': 'project_wide', 'old': None, 'new': []})
-
-    if 'module_scoped' not in scope:
-        scope['module_scoped'] = {}
-        fixes.append({'pattern': 'ADD_REUSABILITY_SCOPE_FIELDS', 'field': 'module_scoped', 'old': None, 'new': {}})
-
-    if 'historical' not in scope:
-        scope['historical'] = []
-        fixes.append({'pattern': 'ADD_REUSABILITY_SCOPE_FIELDS', 'field': 'historical', 'old': None, 'new': []})
-
-    return fixes if fixes else None
-
-
-def apply_remediation(chatlog, errors, config):
+    Implements:
+    - CAP-061: Multi-behavior pattern detection
+    - CAP-062: Temporal language detection
+    - CAP-063: Cross-domain boundary violation detection
+    - CAP-064: Non-blocking warnings
+    - CAP-065: Severity levels
     """
-    Apply automatic fixes based on error patterns (CAP-089).
+    warnings = []
 
-    Returns: List of fixes applied
+    if 'rules' not in chatlog:
+        return warnings
+
+    rules = chatlog['rules']
+
+    for category in ['decisions', 'constraints', 'invariants']:
+        if category not in rules:
+            continue
+
+        for idx, rule in enumerate(rules[category]):
+            if 'topic' not in rule:
+                continue
+
+            topic = rule['topic']
+
+            # CAP-061: Multi-behavior pattern detection
+            multi_behavior_patterns = [
+                ('and also', 'HIGH'),
+                ('in addition', 'HIGH'),
+                ('; ', 'MEDIUM'),
+                (' and ', 'LOW')
+            ]
+            for pattern, severity in multi_behavior_patterns:
+                if pattern in topic.lower():
+                    warnings.append(f"[{severity}] Rule at {category} index {idx}: Possible multi-behavior (contains '{pattern}'). Consider splitting per INV-002.")
+                    break  # Only warn once per rule
+
+            # CAP-062: Temporal language detection
+            temporal_patterns = ['was ', 'were ', 'Phase ', 'completed', 'during ', 'after ']
+            for pattern in temporal_patterns:
+                if pattern in topic:
+                    warnings.append(f"[MEDIUM] Rule at {category} index {idx}: Temporal language detected (contains '{pattern}'). May be lifecycle candidate.")
+                    break  # Only warn once per rule
+
+            # CAP-063: Cross-domain boundary violation detection
+            if 'model/' in topic and ('build/' in topic or 'context engine' in topic.lower()):
+                warnings.append(f"[HIGH] Rule at {category} index {idx}: Cross-domain boundary violation. System Domain (model/) references Build Domain. See CON-00056.")
+
+    return warnings
+
+
+def remediate_errors(chatlog: Dict[str, Any], errors: List[Dict], config: Dict[str, Any]) -> Tuple[Dict[str, Any], List[Dict]]:
+    """Apply automatic remediation patterns to fix common errors.
+
+    Implements CAP-089: Six remediation patterns.
+
+    Returns (modified_chatlog, fixes_applied)
     """
     fixes_applied = []
+    modified = chatlog.copy()
 
     for error in errors:
         error_type = error.get('error_type')
-        field = error.get('field', '')
+        field = error.get('field')
         category = error.get('category')
         index = error.get('index')
 
-        # FUZZY_MATCH_DOMAIN
+        # CAP-089: FUZZY_MATCH_DOMAIN
         if error_type == 'invalid_value' and field == 'domain':
-            if category and index is not None:
-                rules = chatlog.get('rules', {}).get(category, [])
-                if index < len(rules):
-                    fix = remediate_fuzzy_match_domain(rules[index], config)
-                    if fix:
-                        fix['field'] = f'rules.{category}[{index}].domain'
-                        fixes_applied.append(fix)
+            if category in ['decisions', 'constraints', 'invariants'] and index is not None:
+                invalid_domain = modified['rules'][category][index]['domain']
+                valid_domains = config['domain_tags']
+                matches = get_close_matches(invalid_domain, valid_domains, n=1, cutoff=0.6)
+                if matches:
+                    old_value = invalid_domain
+                    new_value = matches[0]
+                    modified['rules'][category][index]['domain'] = new_value
+                    fixes_applied.append({
+                        'pattern': 'FUZZY_MATCH_DOMAIN',
+                        'field': f'rules.{category}[{index}].domain',
+                        'old': old_value,
+                        'new': new_value
+                    })
 
-        # CLAMP_CONFIDENCE
+        # CAP-089: CLAMP_CONFIDENCE
         elif error_type == 'out_of_range' and field == 'confidence':
-            if category and index is not None:
-                rules = chatlog.get('rules', {}).get(category, [])
-                if index < len(rules):
-                    fix = remediate_clamp_confidence(rules[index])
-                    if fix:
-                        fix['field'] = f'rules.{category}[{index}].confidence'
-                        fixes_applied.append(fix)
+            if category in ['decisions', 'constraints', 'invariants'] and index is not None:
+                old_value = modified['rules'][category][index]['confidence']
+                if float(old_value) > 1.0:
+                    new_value = 0.95
+                elif float(old_value) < 0.0:
+                    new_value = 0.5
+                else:
+                    new_value = old_value
+                modified['rules'][category][index]['confidence'] = new_value
+                fixes_applied.append({
+                    'pattern': 'CLAMP_CONFIDENCE',
+                    'field': f'rules.{category}[{index}].confidence',
+                    'old': old_value,
+                    'new': new_value
+                })
 
-        # REGENERATE_UUID
+        # CAP-089: REGENERATE_UUID
         elif error_type == 'invalid_format' and field == 'chatlog_id':
-            fix = remediate_regenerate_uuid(chatlog)
-            if fix:
-                fix['field'] = 'chatlog_id'
-                fixes_applied.append(fix)
+            old_value = modified.get('chatlog_id', '')
+            new_value = str(uuid.uuid4())
+            modified['chatlog_id'] = new_value
+            fixes_applied.append({
+                'pattern': 'REGENERATE_UUID',
+                'field': 'chatlog_id',
+                'old': old_value,
+                'new': new_value
+            })
 
-        # REGENERATE_TIMESTAMP
+        # CAP-089: REGENERATE_TIMESTAMP
         elif error_type == 'invalid_format' and field == 'timestamp':
-            fix = remediate_regenerate_timestamp(chatlog)
-            if fix:
-                fix['field'] = 'timestamp'
-                fixes_applied.append(fix)
+            old_value = modified.get('timestamp', '')
+            # Use timezone-aware datetime (Python 3.11+) or fallback to utcnow
+            try:
+                from datetime import UTC
+                new_value = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+            except ImportError:
+                new_value = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            modified['timestamp'] = new_value
+            fixes_applied.append({
+                'pattern': 'REGENERATE_TIMESTAMP',
+                'field': 'timestamp',
+                'old': old_value,
+                'new': new_value
+            })
 
-        # ADD_VALIDATION_METHOD
+        # CAP-089: ADD_VALIDATION_METHOD
         elif error_type == 'missing_field' and field == 'validation_method':
-            if category and index is not None:
-                rules = chatlog.get('rules', {}).get(category, [])
-                if index < len(rules):
-                    fix = remediate_add_validation_method(rules[index])
-                    if fix:
-                        fix['field'] = f'rules.{category}[{index}].validation_method'
-                        fixes_applied.append(fix)
+            if category == 'constraints' and index is not None:
+                modified['rules'][category][index]['validation_method'] = 'Code review required'
+                fixes_applied.append({
+                    'pattern': 'ADD_VALIDATION_METHOD',
+                    'field': f'rules.{category}[{index}].validation_method',
+                    'old': None,
+                    'new': 'Code review required'
+                })
 
-        # ADD_REUSABILITY_SCOPE_FIELDS
+        # CAP-089: ADD_REUSABILITY_SCOPE_FIELDS
         elif error_type == 'missing_field' and 'reusability_scope' in field:
-            session_ctx = chatlog.get('session_context', {})
-            fix_list = remediate_add_reusability_scope_fields(session_ctx)
-            if fix_list:
-                for fix in fix_list:
-                    fix['field'] = f"session_context.reusability_scope.{fix['field']}"
-                    fixes_applied.append(fix)
+            if 'session_context' not in modified:
+                modified['session_context'] = {}
+            if 'reusability_scope' not in modified['session_context']:
+                modified['session_context']['reusability_scope'] = {}
 
-    return fixes_applied
+            scope = modified['session_context']['reusability_scope']
+            if 'project_wide' not in scope:
+                scope['project_wide'] = []
+            if 'module_scoped' not in scope:
+                scope['module_scoped'] = {}
+            if 'historical' not in scope:
+                scope['historical'] = []
+
+            fixes_applied.append({
+                'pattern': 'ADD_REUSABILITY_SCOPE_FIELDS',
+                'field': 'session_context.reusability_scope',
+                'old': None,
+                'new': scope
+            })
+
+    return modified, fixes_applied
 
 
-# ============================================================================
-# MAIN VALIDATION LOGIC
-# ============================================================================
+def validate_chatlog(chatlog_path: Path, config: Dict[str, Any], debug: bool = False,
+                     remediate: bool = False, max_attempts: int = 3) -> Dict[str, Any]:
+    """Main validation function.
 
-def validate_chatlog_file(filepath, config, debug_mode=False, remediate=False, max_attempts=3):
+    Implements:
+    - CAP-040 through CAP-043: Validation logic
+    - CAP-087, CAP-088: Remediation mode
     """
-    Validate chatlog file with optional remediation (CAP-087, CAP-088).
-
-    Returns: dict with validation results
-    """
-    filepath = Path(filepath)
-
-    # Check file exists
-    if not filepath.exists():
-        return {
-            'success': False,
-            'file': str(filepath.absolute()),
-            'errors': [{'message': 'File not found'}],
-            'warnings': [],
-            'fixes_applied': []
-        }
-
-    # Load YAML
+    # Load chatlog
     try:
-        with open(filepath) as f:
+        with open(chatlog_path) as f:
             chatlog = yaml.safe_load(f)
+    except FileNotFoundError:
+        return {
+            'valid': False,
+            'file': str(chatlog_path),
+            'errors': ['File not found'],
+            'warnings': []
+        }
     except yaml.YAMLError as e:
         return {
-            'success': False,
-            'file': str(filepath.absolute()),
-            'errors': [{'message': f'YAML parse error: {e}'}],
-            'warnings': [],
-            'fixes_applied': []
+            'valid': False,
+            'file': str(chatlog_path),
+            'errors': [f'YAML parse error: {e}'],
+            'warnings': []
         }
 
-    if not isinstance(chatlog, dict):
+    # CAP-087: Remediation loop
+    if remediate:
+        all_fixes = []
+        for attempt in range(max_attempts):
+            # Validate schema
+            schema_errors, schema_warnings = validate_schema_structure(chatlog, config, debug)
+
+            if not schema_errors:
+                # Success - run quality checks
+                quality_warnings = validate_quality(chatlog)
+                return {
+                    'success': True,
+                    'valid': True,
+                    'file': str(chatlog_path.absolute()),
+                    'attempts': attempt + 1,
+                    'fixes_applied': all_fixes,
+                    'warnings': schema_warnings + quality_warnings,
+                    'errors': []
+                }
+
+            # Apply remediation
+            chatlog, fixes = remediate_errors(chatlog, schema_errors, config)
+            all_fixes.extend(fixes)
+
+            # Save modified chatlog
+            with open(chatlog_path, 'w') as f:
+                yaml.dump(chatlog, f, default_flow_style=False, sort_keys=False)
+
+        # Failed after max attempts
+        schema_errors, schema_warnings = validate_schema_structure(chatlog, config, debug)
         return {
             'success': False,
-            'file': str(filepath.absolute()),
-            'errors': [{'message': 'Chatlog must be a YAML dictionary'}],
-            'warnings': [],
-            'fixes_applied': []
+            'valid': False,
+            'file': str(chatlog_path.absolute()),
+            'attempts': max_attempts,
+            'fixes_applied': all_fixes,
+            'warnings': schema_warnings,
+            'errors': [e['message'] for e in schema_errors]
         }
 
-    all_fixes = []
-    attempt = 0
+    # Non-remediate mode: single validation pass
+    schema_errors, schema_warnings = validate_schema_structure(chatlog, config, debug)
 
-    while attempt < max_attempts:
-        attempt += 1
+    if schema_errors:
+        return {
+            'valid': False,
+            'file': str(chatlog_path),
+            'errors': [e['message'] for e in schema_errors],
+            'warnings': schema_warnings
+        }
 
-        # Validate
-        errors, warnings = validate_schema(chatlog, config, debug_mode=debug_mode)
+    # Schema valid - run quality checks
+    quality_warnings = validate_quality(chatlog)
 
-        if not errors:
-            # Success - save if modified
-            if remediate and all_fixes:
-                with open(filepath, 'w') as f:
-                    yaml.dump(chatlog, f, default_flow_style=False, sort_keys=False)
-
-            return {
-                'success': True,
-                'file': str(filepath.absolute()),
-                'attempts': attempt,
-                'errors': [],
-                'warnings': warnings,
-                'fixes_applied': all_fixes
-            }
-
-        # If remediation disabled or last attempt, return errors
-        if not remediate or attempt >= max_attempts:
-            return {
-                'success': False,
-                'file': str(filepath.absolute()),
-                'attempts': attempt,
-                'errors': errors,
-                'warnings': warnings,
-                'fixes_applied': all_fixes
-            }
-
-        # Apply remediation
-        fixes = apply_remediation(chatlog, errors, config)
-        all_fixes.extend(fixes)
-
-        if not fixes:
-            # No fixes applied, can't make progress
-            return {
-                'success': False,
-                'file': str(filepath.absolute()),
-                'attempts': attempt,
-                'errors': errors,
-                'warnings': warnings,
-                'fixes_applied': all_fixes
-            }
-
-    # Max attempts exhausted
     return {
-        'success': False,
-        'file': str(filepath.absolute()),
-        'attempts': attempt,
-        'errors': errors,
-        'warnings': warnings,
-        'fixes_applied': all_fixes
+        'valid': True,
+        'file': str(chatlog_path),
+        'errors': [],
+        'warnings': schema_warnings + quality_warnings
     }
 
 
 def main():
-    """
-    Chatlog validation with optional remediation.
-
-    Usage:
-        validate_chatlog.py <chatlog_file> [--debug] [--remediate] [--max-attempts N]
-
-    Exit codes:
-        0: Valid (no errors, may have warnings)
-        1: Invalid (schema errors or debug-mode version mismatch)
-        2: File not found or YAML parse error
-    """
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Validate chatlog YAML files')
-    parser.add_argument('chatlog_file', help='Path to chatlog YAML file')
+    """Session knowledge extraction with Python-based validation and remediation (Spec 11 v2.0.0)"""
+    parser = argparse.ArgumentParser(
+        description='Validate chatlog YAML files with schema and quality checks'
+    )
+    parser.add_argument('chatlog_file', type=Path, help='Path to chatlog YAML file')
     parser.add_argument('--debug', action='store_true',
                        help='Enable deployment compatibility checks (CAP-041a)')
     parser.add_argument('--remediate', action='store_true',
@@ -638,33 +587,27 @@ def main():
         config = load_config()
     except Exception as e:
         result = {
-            'success': False,
-            'errors': [{'message': f'Configuration error: {e}'}],
-            'warnings': [],
-            'fixes_applied': []
+            'valid': False,
+            'errors': [f'Configuration error: {e}'],
+            'warnings': []
         }
         print(json.dumps(result, indent=2))
         return 2
 
     # Validate chatlog
-    result = validate_chatlog_file(
-        args.chatlog_file,
-        config,
-        debug_mode=args.debug,
-        remediate=args.remediate,
-        max_attempts=args.max_attempts
-    )
+    result = validate_chatlog(args.chatlog_file, config, args.debug, args.remediate, args.max_attempts)
 
-    # Print JSON result (CAP-042, CAP-088)
+    # CAP-042: Output JSON result
     print(json.dumps(result, indent=2))
 
-    # Determine exit code (CAP-041a)
-    if result['success']:
-        return 0
-    elif 'File not found' in str(result.get('errors', [])) or 'YAML parse error' in str(result.get('errors', [])):
-        return 2
+    # CAP-041a: Exit codes
+    if result['valid']:
+        return 0  # Valid (possibly with warnings)
     else:
-        return 1
+        if 'File not found' in result.get('errors', []) or any('YAML parse error' in e for e in result.get('errors', [])):
+            return 2  # File not found or parse error
+        else:
+            return 1  # Invalid (schema errors)
 
 
 if __name__ == '__main__':

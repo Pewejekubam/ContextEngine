@@ -2,6 +2,15 @@
 
 > Context Engine: Generate onboard-root.yaml for new agent sessions
 
+<!-- TEMPLATE_METADATA
+Template: runtime-template-onboard-generate
+Version: v1.0.0
+Updated: 2025-11-30
+Variables: None (self-contained)
+
+Changelog:
+- v1.0.0 (2025-11-30): Initial template for /ce-onboard-generate slash command
+END_TEMPLATE_METADATA -->
 
 ## Overview
 

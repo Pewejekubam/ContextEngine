@@ -3,9 +3,9 @@
 
 # === Deployment-specific paths (written by ce-init.sh --setup at first run) ===
 paths:
-  commands_dir: __PLACEHOLDER__  # Populated by ce-init.sh --setup
-  context_engine_home: __PLACEHOLDER__  # Populated by ce-init.sh --setup
-  project_root: __PLACEHOLDER__  # Populated by ce-init.sh --setup
+  project_root: __PLACEHOLDER__           # Populated by ce-init.sh --setup
+  context_engine_home: __PLACEHOLDER__    # Populated by ce-init.sh --setup
+  commands_dir: __PLACEHOLDER__           # Populated by ce-init.sh --setup
 
 # === Context Engine directory structure (fixed relative paths) ===
 structure:
@@ -17,12 +17,41 @@ structure:
   scripts_dir: scripts
   templates_dir: templates
 
+# === Rule curation configuration (Spec 77 v1.1.0) ===
+curation:
+  enabled: true
+
+  # Confidence threshold - rules below this are archived
+  confidence_threshold: 0.70
+
+  # Domain migrations - applied in order
+  domain_migrations: []
+    # - from: "old_domain_name"
+    #   to: "new_domain_name"
+    #   effective_date: "2025-06-01"  # Optional: only apply to rules created before this date
+
+  # Conflict resolution strategy
+  # - "flag": Report conflicts but don't resolve (default)
+  # - "keep_newer": Archive older rule, keep newer
+  # - "keep_higher_confidence": Archive lower confidence rule
+  conflict_resolution: "flag"
+
+  # Scopes to exclude from active rule set queries
+  # Rules with these reusability_scope values are archived
+  archive_scopes:
+    - "historical"
+
 # === Runtime behavior configuration ===
 behavior:
-  chatlog_schema_version: v1.14.1
   rule_id_format: "{TYPE}-{NNNNN}"
   rule_id_padding: 5
-  rule_types: [ADR, CON, INV]
-  tags_state_values: [needs_tags, pending_review, refined, curated]
-  lifecycle_values: [active, superseded, deprecated, archived]
-  confidence_threshold: 0.5
+  chatlog_schema_version: v1.14.1
+
+  # Rule types (extracted from core/system.yaml)
+  rule_types: ["ADR", "CON", "INV"]
+
+  # Tags state values (extracted from core/system.yaml)
+  tags_state_values: ["needs_tags", "pending_review", "refined", "curated"]
+
+  # Lifecycle values (extracted from core/system.yaml)
+  lifecycle_values: ["active", "superseded", "deprecated", "archived"]

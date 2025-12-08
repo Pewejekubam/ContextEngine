@@ -2,6 +2,15 @@
 
 > Context Engine: Optimize tags for all untagged rules (non-interactive)
 
+<!-- TEMPLATE_METADATA
+Template: runtime-template-tags-optimize-all
+Version: v1.0.0
+Updated: 2025-11-30
+Variables: None (self-contained)
+
+Changelog:
+- v1.0.0 (2025-11-30): Initial template for /ce-tags-optimize-all slash command
+END_TEMPLATE_METADATA -->
 
 ## Overview
 

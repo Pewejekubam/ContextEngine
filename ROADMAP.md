@@ -4,18 +4,22 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 
 ---
 
-## Current Release: v3.4.1
+## Current Release: v3.5.0
 
 **Status:** Stable, feature-complete for core use cases
-**Release Date:** December 4, 2025
-**Focus:** Schema hardening and codebase refinement
+**Release Date:** December 8, 2025
+**Focus:** Automated rule curation and knowledge hygiene
 
-### What's New in v3.4.1
+### What's New in v3.5.0
 
-- Chatlog schema version upgraded to v1.14.1
-- Explicit behavior definitions in deployment config (rule types, lifecycle states, tag states)
-- Major refactoring of ETL scripts for maintainability
-- Standardized placeholder naming in vocabulary templates
+- **Automated rule curation** (Spec 77 v1.1.0) with CI/CD JSON output
+  - Duplicate detection and merging
+  - Low confidence archival (configurable threshold)
+  - Domain migrations with history tracking
+  - Conflict detection and resolution strategies
+- New make commands: `rules-curate`, `rules-curate-dry-run`
+- `curation:` configuration section in deployment.yaml
+- Template metadata headers for version tracking
 
 ### Core Features (All Versions)
 
@@ -55,6 +59,12 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 
 ## Recent Releases
 
+### v3.4.1 (December 4, 2025)
+
+- Schema hardening and ETL refactoring
+- Explicit behavior definitions in deployment config
+- Standardized placeholder naming in vocabulary templates
+
 ### v3.4.0 (November 29, 2025)
 
 - Integrated setup.sh into ce-init.sh for streamlined initialization
@@ -67,12 +77,6 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 - Fixed GitHub Release automation
 - Documentation improvements
 
-### v3.2.0 (November 2025)
-
-- Initial public release
-- Complete documentation suite
-- Community infrastructure (CODE_OF_CONDUCT, SECURITY, CONTRIBUTING)
-
 ---
 
 ## Future Direction
@@ -82,7 +86,7 @@ We're exploring several directions for future development. These are areas of in
 ### Team Collaboration
 - Domain-specific onboarding generation
 - Knowledge validation and quality gates
-- Conflict detection between rules
+- ~~Conflict detection between rules~~ ✅ (v3.5.0)
 - Governance frameworks for teams
 
 ### Integration & Ecosystem

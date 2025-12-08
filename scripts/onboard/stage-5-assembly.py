@@ -552,23 +552,26 @@ domain_sections = render_domain_sections(domain_groups, vocabulary, conn, rules_
 # RREL-007: Close database connection after rendering (kept open for relationship queries)
 conn.close()
 
-# Prepare essential commands section
-essential_commands = """- `/ce-capture` - Capture session knowledge to database
-- `/ce-onboard` - Regenerate this onboarding file
-- `/ce-tags-optimize` - Optimize rule tags using vocabulary
-- `/ce-tags-check` - Validate tag vocabulary consistency"""
+# Prepare additional template variables
+essential_commands = """
+- `/ce-extract` - Extract new rules from recent chatlogs
+- `/ce-tags-optimize` - Auto-tag rules using vocabulary
+- `/ce-onboard-generate` - Regenerate this onboard file
+""".strip()
 
-# Prepare key directories section
-key_directories = f"""- `{CONTEXT_ENGINE_HOME}/.claude/commands/` - Slash commands
-- `{CONTEXT_ENGINE_HOME}/config/` - Configuration files
-- `{CONTEXT_ENGINE_HOME}/data/` - Database and chatlogs
-- `{CONTEXT_ENGINE_HOME}/scripts/` - Utility scripts"""
+key_directories = """
+- `.context-engine/` - Context Engine runtime (rules database, config, scripts)
+- `.context-engine/data/` - Rules database and chatlogs
+- `.context-engine/config/` - Deployment config and tag vocabulary
+- `.context-engine/scripts/` - ETL and onboarding scripts
+""".strip()
 
-# Prepare rule type legend section
-rule_type_legend = """- **ADR** (Architectural Decision Record): Major design decisions with rationale
-- **CON** (Constraint): Hard boundaries that must not be violated
-- **INV** (Invariant): System properties that must always hold
-- **PAT** (Pattern): Reusable solutions and conventions"""
+rule_type_legend = """
+- **ADR** (Architectural Decision Record): High-level decisions and their rationale
+- **CON** (Constraint): Explicit boundaries and restrictions
+- **INV** (Invariant): Immutable truths about the system
+- **PAT** (Pattern): Reusable solutions and conventions
+""".strip()
 
 # ONB-042: Variable substitution for ${variable} format
 template = template.replace("${version}", version)

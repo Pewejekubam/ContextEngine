@@ -1,4 +1,3 @@
-
 Classify this software engineering rule into five knowledge types. Assign weights (sum=1.0):
 
 **Rule**: {rule_id} ({rule_type})
@@ -20,10 +19,10 @@ Classify this software engineering rule into five knowledge types. Assign weight
 4. Output JSON only, no markdown, no explanations
 
 **Output Format:**
-{{
+{
   "reference": 0.0,
   "procedure": 0.0,
   "decision": 0.0,
   "incident": 0.0,
   "pattern": 0.0
-}}
+}

@@ -68,25 +68,4 @@ Run `/ce-init` to initialize Context Engine first.
 
 ---
 
-## Next Steps After Extraction
-
-Once extraction completes successfully:
-
-1. **Optimize Tags**: Add semantic tags to untagged rules
-   ```bash
-   make tags-optimize
-   ```
-
-2. **View Statistics**: Check extraction results and database status
-   ```bash
-   make database-status
-   ```
-
-3. **Query Rules**: Explore extracted knowledge with SQL
-   ```bash
-   sqlite3 data/rules.db "SELECT * FROM rules LIMIT 10;"
-   ```
-
----
-
 ✓ Extraction ready!

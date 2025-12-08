@@ -16,7 +16,7 @@ engineering decisions, constraints, and architectural knowledge across projects.
 
 1. Extract the distribution:
    ```bash
-   tar -xf context-engine-runtime-v3.4.1.tar
+   tar -xf context-engine-runtime-v3.5.0.tar
    cd .context-engine
    ```
 
@@ -207,6 +207,32 @@ make ci-pipeline
 
 This runs: extract → optimize-tags → validation
 
+### Rule Curation (Automated Cleanup)
+
+Run automated rule hygiene to clean up duplicates, low-confidence rules, and conflicts:
+
+**Preview changes** (dry-run):
+```bash
+cd .context-engine
+make rules-curate-dry-run
+```
+
+**Apply curation**:
+```bash
+cd .context-engine
+make rules-curate
+```
+
+Curation performs these operations (in order):
+1. **Supersession enforcement** - Mark rules with `superseded_by` relationships
+2. **Duplicate detection** - Merge exact duplicates (same type, domain, normalized title)
+3. **Confidence threshold** - Archive rules below threshold (default: 0.70)
+4. **Domain migrations** - Apply configured domain renames
+5. **Scope archival** - Archive rules with excluded scopes (e.g., `historical`)
+6. **Conflict detection** - Flag or resolve conflicting rules
+
+Output is CI/CD-friendly JSON for integration with automated pipelines.
+
 ---
 
 ## Configuration
@@ -227,6 +253,13 @@ structure:
 
 behavior:
   rule_id_format: "{TYPE}-{NNNNN}"
+
+curation:
+  enabled: true
+  confidence_threshold: 0.70
+  conflict_resolution: "flag"  # or "keep_newer", "keep_higher_confidence"
+  archive_scopes: ["historical"]
+  domain_migrations: []
 ```
 
 Updated automatically during initialization.

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2025-12-08
+
+### Added
+- **Automated rule curation** (Spec 77 v1.1.0) - new `rules-curate.py` script
+  - Duplicate detection and merging
+  - Low confidence archival (configurable threshold)
+  - Domain migrations with history tracking
+  - Conflict detection and resolution strategies
+  - Scope-based archival (historical rules)
+  - CI/CD-friendly JSON output
+- New make commands: `rules-curate`, `rules-curate-dry-run`
+- `curation:` configuration section in deployment.yaml
+- Template metadata headers in slash commands for version tracking
+
+### Changed
+- Domain placeholders standardized to uppercase (`__DOMAIN_1__` instead of `__domain_1__`)
+- Removed "Next Steps After Extraction" section from ce-extract.md (redundant)
+- Reorganized behavior section in deployment.yaml.example for clarity
+- Major refactoring across ETL scripts (extract.py, validate_chatlog.py, optimize-tags.py, etc.)
+
+### Fixed
+- Various code cleanup and consistency improvements across Python scripts
+
 ## [3.4.1] - 2025-12-04
 
 ### Changed
@@ -95,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Notes
 
+- **v3.5.0**: Automated rule curation (Spec 77), conflict detection, domain migrations
 - **v3.4.1**: Schema hardening and ETL refactoring
 - **v3.4.0**: Streamlined initialization (setup.sh → ce-init.sh)
 - **v3.3.0**: Repository cleanup and release automation fixes
@@ -109,7 +133,8 @@ For upgrading between versions, see [docs/UPGRADE.md](docs/UPGRADE.md).
 
 ---
 
-[Unreleased]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.1...HEAD
+[Unreleased]: https://github.com/Pewejekubam/ContextEngine/compare/v3.5.0...HEAD
+[3.5.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.1...v3.5.0
 [3.4.1]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.2.0...v3.3.0

@@ -4,7 +4,7 @@
 # Generated from: specs/modules/build-config-makefile-wrapper-v1.3.2.yaml
 # Generator: makefile_generator.py
 
-.PHONY: help ci-pipeline chatlogs-extract chatlogs-debug chatlogs-validate tags-optimize tags-stats database-init database-status database-clean onboard-generate tags-optimize-auto tags-review tags-check
+.PHONY: help ci-pipeline chatlogs-extract chatlogs-debug chatlogs-validate tags-optimize tags-stats database-init database-status database-clean onboard-generate tags-optimize-auto tags-review tags-check rules-curate rules-curate-dry-run
 
 # Display available commands (default target)
 help:
@@ -33,6 +33,10 @@ help:
 	@echo "  database-status           Show database statistics and rule counts"
 	@echo "  database-clean            Remove and reinitialize database (preserves chatlogs)"
 	@echo "                            Note: Use /ce-mark-salience for manual rule priority override"
+	@echo ""
+	@echo "Curation Workflow:"
+	@echo "  rules-curate              Apply automated rule curation (CI/CD)"
+	@echo "  rules-curate-dry-run      Preview curation changes without applying"
 	@echo ""
 	@echo "Onboarding Workflow:"
 	@echo "  onboard-generate          Generate agent onboarding context"
@@ -170,3 +174,13 @@ tags-review:
 # Pre-commit health check (untagged count, typo detection)
 tags-check:
 	@python3 scripts/tags-check.py
+
+# Apply automated rule curation (duplicates, low confidence, conflicts)
+rules-curate:
+	@echo "Running automated rule curation..."
+	@python3 scripts/rules-curate.py --mode apply --verbose
+
+# Preview curation changes without applying (dry-run mode)
+rules-curate-dry-run:
+	@echo "Running curation dry-run (no changes will be applied)..."
+	@python3 scripts/rules-curate.py --mode dry-run --verbose
