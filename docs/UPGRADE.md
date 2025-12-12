@@ -106,13 +106,20 @@ If you installed via tarball, follow these steps.
 
 The initialization prompt handles upgrades automatically:
 
-1. Extract new version over your existing installation:
+1. Download the latest release:
    ```bash
-   tar -xf context-engine-runtime-v<new-version>.tar
+   cd /path/to/your/project
+   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest \
+     | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
+   ```
+
+2. Extract new version over your existing installation:
+   ```bash
+   tar -xf context-engine-runtime-v*.tar
    cd .context-engine
    ```
 
-2. Run initialization (detects upgrade automatically):
+3. Run initialization (detects upgrade automatically):
 
    Ask Claude:
    ```
@@ -133,16 +140,23 @@ If you prefer manual control:
 
 1. Download new version:
    ```bash
-   tar -xf context-engine-runtime-v<new-version>.tar
+   cd /path/to/your/project
+   curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest \
+     | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
    ```
 
-2. Backup your data:
+2. Extract the tarball:
+   ```bash
+   tar -xf context-engine-runtime-v*.tar
+   ```
+
+3. Backup your data:
    ```bash
    cp .context-engine/data/rules.db rules.db.backup
    cp .context-engine/config/*.yaml config-backup/
    ```
 
-3. Replace runtime files (keep your data):
+4. Replace runtime files (keep your data):
    ```bash
    # Remove old scripts and schema
    rm -rf .context-engine/scripts .context-engine/schema .context-engine/Makefile
@@ -154,13 +168,13 @@ If you prefer manual control:
    cp .context-engine-new/Makefile .context-engine/
    ```
 
-4. Review new example configs (don't overwrite yours):
+5. Review new example configs (don't overwrite yours):
    ```bash
    diff .context-engine/config/deployment.yaml .context-engine-new/config/deployment.yaml.example
    diff .context-engine/config/tag-vocabulary.yaml .context-engine-new/config/tag-vocabulary.yaml.example
    ```
 
-5. Run initialization to update paths:
+6. Run initialization to update paths:
 
    Ask Claude:
    ```
