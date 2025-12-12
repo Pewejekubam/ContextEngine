@@ -552,26 +552,20 @@ domain_sections = render_domain_sections(domain_groups, vocabulary, conn, rules_
 # RREL-007: Close database connection after rendering (kept open for relationship queries)
 conn.close()
 
-# Prepare additional template variables
-essential_commands = """
-- `/ce-extract` - Extract new rules from recent chatlogs
-- `/ce-tags-optimize` - Auto-tag rules using vocabulary
-- `/ce-onboard-generate` - Regenerate this onboard file
-""".strip()
+# RREL-009a: Prepare Getting Started section static content
+essential_commands = """- `/ce-capture` - Capture session knowledge to chatlog
+- `/ce-extract` - Extract rules from recent chatlogs
+- `/ce-tags-optimize` - Tag rules with domain and metadata
+- `/ce-onboard-generate` - Regenerate this onboarding file"""
 
-key_directories = """
-- `.context-engine/` - Context Engine runtime (rules database, config, scripts)
-- `.context-engine/data/` - Rules database and chatlogs
-- `.context-engine/config/` - Deployment config and tag vocabulary
-- `.context-engine/scripts/` - ETL and onboarding scripts
-""".strip()
+key_directories = """- `data/` - Rules database and chatlogs
+- `config/` - Deployment config and tag vocabulary
+- `scripts/` - Operational scripts (extract, classify, optimize)
+- `docs/` - Architectural documentation"""
 
-rule_type_legend = """
-- **ADR** (Architectural Decision Record): High-level decisions and their rationale
-- **CON** (Constraint): Explicit boundaries and restrictions
-- **INV** (Invariant): Immutable truths about the system
-- **PAT** (Pattern): Reusable solutions and conventions
-""".strip()
+rule_type_legend = """- **ADR** (Architectural Decision Record) - Major design decisions
+- **CON** (Constraint) - Active constraints and requirements
+- **INV** (Invariant) - System invariants that must never be violated"""
 
 # ONB-042: Variable substitution for ${variable} format
 template = template.replace("${version}", version)

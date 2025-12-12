@@ -4,22 +4,28 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 
 ---
 
-## Current Release: v3.5.0
+## Current Release: v3.6.0
 
 **Status:** Stable, feature-complete for core use cases
-**Release Date:** December 8, 2025
-**Focus:** Automated rule curation and knowledge hygiene
+**Release Date:** December 11, 2025
+**Focus:** LLM-assisted conflict resolution and codebase refactoring
 
-### What's New in v3.5.0
+### What's New in v3.6.0
 
-- **Automated rule curation** (Spec 77 v1.1.0) with CI/CD JSON output
-  - Duplicate detection and merging
-  - Low confidence archival (configurable threshold)
-  - Domain migrations with history tracking
-  - Conflict detection and resolution strategies
-- New make commands: `rules-curate`, `rules-curate-dry-run`
-- `curation:` configuration section in deployment.yaml
-- Template metadata headers for version tracking
+- **LLM-assisted conflict resolution** (Spec 77 v1.3.0)
+  - New `llm_assisted` conflict resolution strategy
+  - Confidence-gated auto-approval (default threshold: 0.80)
+  - Cost limits and safety controls for LLM processing
+  - New template: `runtime-template-rules-conflict-resolution.txt`
+- **Configuration enhancements**
+  - `auto_resolution:` section with fine-grained controls
+  - Per-run cost limits and conflict caps
+  - Timeout configuration for LLM calls
+- **Codebase refactoring**
+  - Significant cleanup across all Python scripts
+  - Improved code organization and documentation
+  - Removed template metadata headers from commands (cleaner output)
+  - Streamlined deployment.yaml structure
 
 ### Core Features (All Versions)
 
@@ -59,6 +65,17 @@ Public roadmap showing where Context Engine is headed and what's planned for fut
 
 ## Recent Releases
 
+### v3.5.0 (December 8, 2025)
+
+- **Automated rule curation** (Spec 77 v1.1.0) with CI/CD JSON output
+  - Duplicate detection and merging
+  - Low confidence archival (configurable threshold)
+  - Domain migrations with history tracking
+  - Conflict detection and resolution strategies
+- New make commands: `rules-curate`, `rules-curate-dry-run`
+- `curation:` configuration section in deployment.yaml
+- Template metadata headers for version tracking
+
 ### v3.4.1 (December 4, 2025)
 
 - Schema hardening and ETL refactoring
@@ -87,6 +104,7 @@ We're exploring several directions for future development. These are areas of in
 - Domain-specific onboarding generation
 - Knowledge validation and quality gates
 - ~~Conflict detection between rules~~ ✅ (v3.5.0)
+- ~~LLM-assisted conflict resolution~~ ✅ (v3.6.0)
 - Governance frameworks for teams
 
 ### Integration & Ecosystem

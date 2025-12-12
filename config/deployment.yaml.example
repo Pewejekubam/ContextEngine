@@ -3,9 +3,9 @@
 
 # === Deployment-specific paths (written by ce-init.sh --setup at first run) ===
 paths:
-  project_root: __PLACEHOLDER__           # Populated by ce-init.sh --setup
-  context_engine_home: __PLACEHOLDER__    # Populated by ce-init.sh --setup
-  commands_dir: __PLACEHOLDER__           # Populated by ce-init.sh --setup
+  project_root: __PLACEHOLDER__  # Populated by ce-init.sh --setup
+  context_engine_home: __PLACEHOLDER__  # Populated by ce-init.sh --setup
+  commands_dir: __PLACEHOLDER__  # Populated by ce-init.sh --setup
 
 # === Context Engine directory structure (fixed relative paths) ===
 structure:
@@ -17,12 +17,12 @@ structure:
   scripts_dir: scripts
   templates_dir: templates
 
-# === Rule curation configuration (Spec 77 v1.1.0) ===
+# === Rule curation configuration (Spec 77 v1.3.0) ===
 curation:
   enabled: true
 
   # Confidence threshold - rules below this are archived
-  confidence_threshold: 0.70
+  confidence_threshold: 0.7
 
   # Domain migrations - applied in order
   domain_migrations: []
@@ -34,6 +34,7 @@ curation:
   # - "flag": Report conflicts but don't resolve (default)
   # - "keep_newer": Archive older rule, keep newer
   # - "keep_higher_confidence": Archive lower confidence rule
+  # - "llm_assisted": Use LLM reasoning with confidence threshold (v1.3.0)
   conflict_resolution: "flag"
 
   # Scopes to exclude from active rule set queries
@@ -41,17 +42,31 @@ curation:
   archive_scopes:
     - "historical"
 
+  # === LLM-Assisted Conflict Resolution (v1.3.0) ===
+  auto_resolution:
+    # Enable/disable LLM-assisted resolution (only applies when conflict_resolution: "llm_assisted")
+    enabled: true
+
+    # Confidence threshold for auto-approval (0.0-1.0)
+    # Resolutions below this threshold are escalated to manual review
+    # Default 0.80 is higher than tag optimization (0.70) due to greater consequence
+    confidence_threshold: 0.8
+
+    # Maximum cost per curation run (USD)
+    # Processing halts when estimated cost reaches this limit
+    # Remaining conflicts are flagged for manual review
+    cost_limit: 5.0
+
+    # Maximum conflicts to process per run (safety limit)
+    # Prevents runaway processing in pathological cases
+    max_conflicts_per_run: 50
+
+    # Timeout per LLM call (seconds)
+    # Calls exceeding this are treated as failures and escalated
+    timeout_seconds: 30
+
 # === Runtime behavior configuration ===
 behavior:
   rule_id_format: "{TYPE}-{NNNNN}"
   rule_id_padding: 5
   chatlog_schema_version: v1.14.1
-
-  # Rule types (extracted from core/system.yaml)
-  rule_types: ["ADR", "CON", "INV"]
-
-  # Tags state values (extracted from core/system.yaml)
-  tags_state_values: ["needs_tags", "pending_review", "refined", "curated"]
-
-  # Lifecycle values (extracted from core/system.yaml)
-  lifecycle_values: ["active", "superseded", "deprecated", "archived"]

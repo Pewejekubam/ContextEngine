@@ -1,0 +1,68 @@
+
+# Rule Conflict Resolution
+
+## Your Role
+You are a knowledge base curator analyzing a conflict between two architectural rules. Your task is to determine whether one rule supersedes the other, they should merge, they can coexist, or the conflict requires human review.
+
+## Conflict Analysis Framework
+
+### Resolution Patterns
+
+1. **Supersession** (one replaces the other):
+   - Newer rule explicitly rejects approach from older rule
+   - Architectural evolution: Rule B refines or replaces Rule A's model
+   - Workaround obsolescence: Correct understanding eliminates need for workaround
+   - Constraint refinement: Newer rule adds nuance/scope to blanket prohibition
+
+2. **Merge** (identical knowledge):
+   - Rules express the same constraint with different wording
+   - One is a subset of the other
+   - Duplicate extraction from different sessions
+
+3. **Coexist** (false positive conflict):
+   - Rules address orthogonal concerns (different problem axes)
+   - Rules apply to different scopes/contexts
+   - Conflict relationship was incorrectly declared
+
+4. **Escalate** (genuine tension):
+   - Both approaches have valid trade-offs
+   - Resolution requires domain expertise beyond rule content
+   - Architectural decision pending
+
+### Confidence Scoring
+
+- **0.95-1.00**: Absolute certainty (explicit supersession declaration, exact duplicate)
+- **0.85-0.94**: High confidence (clear evolution pattern, obvious false positive)
+- **0.75-0.84**: Moderate confidence (semantic analysis supports conclusion)
+- **0.60-0.74**: Low confidence (ambiguous, some interpretation required)
+- **Below 0.60**: Insufficient confidence (escalate to human)
+
+## Rules to Analyze
+
+### Rule A
+{rule_a_formatted}
+
+### Rule B
+{rule_b_formatted}
+
+## Task
+
+Analyze the conflict and provide your resolution. Respond with JSON only (no markdown, no prose):
+
+```json
+{
+  "verdict": "supersede|merge|coexist|escalate",
+  "keep": "rule_a|rule_b|both|null",
+  "confidence": 0.0-1.0,
+  "reasoning": "2-3 sentence explanation of your determination, including which resolution pattern applies"
+}
+```
+
+### Output Requirements
+
+- `verdict`: One of the four resolution types
+- `keep`: Which rule survives (required for supersede/merge; "both" for coexist; null for escalate)
+- `confidence`: Your certainty in this determination (0.0-1.0)
+- `reasoning`: Brief explanation referencing the resolution pattern that applies
+
+Respond with valid JSON only.

@@ -44,30 +44,8 @@ def load_config():
 # ============================================================================
 
 
-def levenshtein_distance(s1, s2):
-    """Calculate Levenshtein edit distance between two strings (VOCAB-020)."""
-    if len(s1) < len(s2):
-        return levenshtein_distance(s2, s1)
-
-    if len(s2) == 0:
-        return len(s1)
-
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            # j+1 instead of j since previous_row and current_row are one character longer than s2
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-
-    return previous_row[-1]
-
-
 def get_database_statistics(db_path):
-    """Query database statistics (VOCAB-038)."""
+    """VOCAB-038: Query database statistics using shared helper function."""
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
@@ -99,13 +77,41 @@ def get_database_statistics(db_path):
     }
 
 
-def detect_typos(vocabulary):
-    """Detect typos using edit distance = 1 (VOCAB-020)."""
-    typos = []
-    tier_2_tags = vocabulary.get('tier_2_tags', {})
+def levenshtein_distance(s1, s2):
+    """Calculate Levenshtein edit distance between two strings."""
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
 
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            # j+1 instead of j since previous_row and current_row are one character longer than s2
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
+def detect_typos(vocab_path):
+    """VOCAB-020: Detect typos using edit distance = 1."""
+    # VOCAB-019: Query current vocabulary state from filesystem
+    with open(vocab_path) as f:
+        vocab = yaml.safe_load(f)
+
+    tier_2_tags = vocab.get('tier_2_tags', {})
+    typos = []
+
+    # Compare all tier-2 tags within each domain
     for domain, tags in tier_2_tags.items():
-        # Compare all tags within each domain
+        if not tags:
+            continue
         for i, tag1 in enumerate(tags):
             for tag2 in tags[i+1:]:
                 if levenshtein_distance(tag1, tag2) == 1:
@@ -115,7 +121,7 @@ def detect_typos(vocabulary):
 
 
 def detect_rare_tags(db_path):
-    """Detect rare tags (1-2 uses) across all rules (VOCAB-022)."""
+    """VOCAB-022: Detect rare tags (1-2 uses across all rules in database)."""
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
@@ -137,6 +143,89 @@ def detect_rare_tags(db_path):
     return rare_tags
 
 
+def update_rule_tags(db_path, rule_id, old_tag, new_tag):
+    """VOCAB-023: Update affected rules when merging synonyms."""
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Get current tags
+    cursor.execute("SELECT tags FROM rules WHERE id = ?", (rule_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        return False
+
+    tags = json.loads(result[0])
+
+    # Replace old tag with new tag
+    if old_tag in tags:
+        tags.remove(old_tag)
+        if new_tag not in tags:
+            tags.append(new_tag)
+
+        # Update rule
+        cursor.execute(
+            "UPDATE rules SET tags = ? WHERE id = ?",
+            (json.dumps(tags), rule_id)
+        )
+        conn.commit()
+
+    conn.close()
+    return True
+
+
+def remove_tag_from_rule(db_path, rule_id, tag_to_remove):
+    """VOCAB-024: Remove tag and set tags_state='needs_tags' if all tags removed."""
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Get current tags
+    cursor.execute("SELECT tags FROM rules WHERE id = ?", (rule_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        return False
+
+    tags = json.loads(result[0])
+
+    # Remove tag
+    if tag_to_remove in tags:
+        tags.remove(tag_to_remove)
+
+        # VOCAB-024: Set tags_state='needs_tags' if tags empty
+        if not tags:
+            cursor.execute(
+                "UPDATE rules SET tags = ?, tags_state = 'needs_tags' WHERE id = ?",
+                (json.dumps(tags), rule_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE rules SET tags = ? WHERE id = ?",
+                (json.dumps(tags), rule_id)
+            )
+        conn.commit()
+
+    conn.close()
+    return True
+
+
+def find_rules_with_tag(db_path, tag):
+    """Find all rules containing a specific tag."""
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id
+        FROM rules
+        WHERE json_extract(tags, '$') LIKE ?
+    """, (f'%"{tag}"%',))
+
+    rule_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    return rule_ids
+
+
 def main():
     """Vocabulary curation workflows: typo detection, synonym merging, rare tag cleanup, and pre-commit health checks"""
     print("Vocabulary Review")
@@ -149,50 +238,39 @@ def main():
         print(f"Error loading configuration: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # VOCAB-019: Load vocabulary from filesystem (not cached)
+    # Get paths
     vocab_path = BASE_DIR / "config" / "tag-vocabulary.yaml"
-    try:
-        with open(vocab_path) as f:
-            vocabulary = yaml.safe_load(f)
-    except Exception as e:
-        print(f"Error loading vocabulary: {e}", file=sys.stderr)
-        sys.exit(1)
+    db_path = Path(config['structure']['database_path'])
 
-    # Get database path
-    db_path = BASE_DIR / "data" / "rules.db"
-
-    # VOCAB-038: Query database statistics
+    # Get database statistics (VOCAB-038)
     stats = get_database_statistics(db_path)
 
-    # VOCAB-020: Detect typos
-    typos = detect_typos(vocabulary)
-
-    # VOCAB-022: Detect rare tags
+    # Detect issues
+    typos = detect_typos(vocab_path)
     rare_tags = detect_rare_tags(db_path)
 
-    # VOCAB-036: Empty state reporting
+    # VOCAB-036: Report empty state when no curation needed
     if len(typos) == 0 and len(rare_tags) == 0:
-        print("\nNo vocabulary curation needed.")
-        print("\nDatabase state:")
+        print("\nNo vocabulary curation needed.\n")
+        print("Database state:")
         print(f"  Total rules: {stats['total_rules']}")
         print(f"  Rules with tags: {stats['tagged_rules']}")
-        print(f"  Unique tags: {stats['unique_tags']}")
+        print(f"  Unique tags: {stats['unique_tags']}\n")
 
-        # Guidance message based on state
+        # Guidance message
         if stats['total_rules'] == 0:
-            print("\nDatabase is empty. Run 'make chatlogs-extract' to import rules first.")
+            print("Database is empty. Run 'make chatlogs-extract' to import rules first.")
         elif stats['tagged_rules'] == 0:
-            print("\nNo rules have tags yet. Run 'make tags-optimize' to begin tagging.")
+            print("No rules have tags yet. Run 'make tags-optimize' to begin tagging.")
         else:
-            print("\nVocabulary is healthy. No typos or rare tags detected.")
+            print("Vocabulary is healthy. No typos or rare tags detected.")
 
         return 0
 
-    # VOCAB-021: Show maximum 5 decisions per session
+    # Collect issues (VOCAB-021: max 5 decisions per session)
     issues = []
 
-    # Add typos to issues
-    for domain, tag1, tag2 in typos:
+    for domain, tag1, tag2 in typos[:5]:
         issues.append({
             'type': 'typo',
             'domain': domain,
@@ -200,34 +278,71 @@ def main():
             'tag2': tag2
         })
 
-    # Add rare tags to issues
-    for tag, count in rare_tags:
+    remaining_slots = 5 - len(issues)
+    for tag, count in rare_tags[:remaining_slots]:
         issues.append({
             'type': 'rare',
             'tag': tag,
             'count': count
         })
 
-    # Limit to 5 decisions
-    issues_to_show = issues[:5]
+    # Interactive review
+    decisions_made = 0
+    for i, issue in enumerate(issues):
+        print(f"\n[{i+1}/{len(issues)}]", end=" ")
 
-    print(f"\nFound {len(issues)} issue(s). Showing first {len(issues_to_show)}:")
-    print("\nIssues detected:")
-
-    for i, issue in enumerate(issues_to_show, 1):
         if issue['type'] == 'typo':
-            print(f"  {i}. Potential typo in '{issue['domain']}': '{issue['tag1']}' vs '{issue['tag2']}'")
+            print(f"Potential typo in '{issue['domain']}' domain:")
+            print(f"  Tags: '{issue['tag1']}' and '{issue['tag2']}'")
+            print("\nActions:")
+            print("  1) Merge (keep one, update rules)")
+            print("  2) Keep both (not a typo)")
+            print("  3) Skip")
+
+            choice = input("\nChoice [1-3]: ").strip()
+
+            if choice == '1':
+                print(f"\nWhich to keep?")
+                print(f"  1) {issue['tag1']}")
+                print(f"  2) {issue['tag2']}")
+                keep_choice = input("\nChoice [1-2]: ").strip()
+
+                if keep_choice in ['1', '2']:
+                    old_tag = issue['tag2'] if keep_choice == '1' else issue['tag1']
+                    new_tag = issue['tag1'] if keep_choice == '1' else issue['tag2']
+
+                    # Update all rules
+                    rule_ids = find_rules_with_tag(db_path, old_tag)
+                    for rule_id in rule_ids:
+                        update_rule_tags(db_path, rule_id, old_tag, new_tag)
+
+                    print(f"\nMerged '{old_tag}' → '{new_tag}' ({len(rule_ids)} rules updated)")
+                    decisions_made += 1
+
         elif issue['type'] == 'rare':
-            print(f"  {i}. Rare tag: '{issue['tag']}' (used {issue['count']} time(s))")
+            print(f"Rare tag: '{issue['tag']}' (used {issue['count']} time(s))")
+            print("\nActions:")
+            print("  1) Remove tag from vocabulary and rules")
+            print("  2) Keep tag")
+            print("  3) Skip")
 
-    if len(issues) > 5:
-        print(f"\n{len(issues) - 5} more issue(s) found. Re-run to see more after addressing these.")
+            choice = input("\nChoice [1-3]: ").strip()
 
-    print("\nNote: This is a review tool. Manual curation required.")
-    print("To merge synonyms or remove tags:")
-    print("  1. Edit config/tag-vocabulary.yaml")
-    print("  2. Update affected rules in database")
-    print("  3. Set tags_state='needs_tags' for rules with removed tags (VOCAB-024)")
+            if choice == '1':
+                # Remove from all rules
+                rule_ids = find_rules_with_tag(db_path, issue['tag'])
+                for rule_id in rule_ids:
+                    remove_tag_from_rule(db_path, rule_id, issue['tag'])
+
+                print(f"\nRemoved '{issue['tag']}' from {len(rule_ids)} rule(s)")
+                decisions_made += 1
+
+    # Summary
+    print(f"\n{'='*70}")
+    print(f"Review complete: {decisions_made} decision(s) made")
+
+    if len(typos) > 5 or len(rare_tags) > (5 - len(typos)):
+        print("\nMore issues available. Re-run to see next batch.")
 
     return 0
 

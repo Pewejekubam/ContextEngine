@@ -1,3 +1,4 @@
+
 # Knowledge Base Quality Classification
 
 ## Your Role
@@ -33,13 +34,13 @@ You are a knowledge quality classifier for a software project's context engine. 
 Classify these {batch_size} rules. Respond with JSON array only (no markdown, no prose):
 
 [
-  {
+  {{
     "rule_id": "string",
     "classification": "project_specific|general_advice|noise",
     "confidence": 0.0-1.0,
     "scope": "project_wide|module_scoped|historical",
     "reasoning": "1-2 sentence explanation"
-  }
+  }}
 ]
 
 ## Rules to Classify
