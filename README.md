@@ -63,11 +63,7 @@ Choose one of the following deployment methods:
 
 ### Option 1: Git Clone (Recommended)
 
-Clone the repository directly as `.context-engine` in your project:
-
-```bash
-cd /path/to/your/project
-```
+From your project root, clone the repository as `.context-engine`:
 
 ```bash
 git clone https://github.com/Pewejekubam/ContextEngine.git .context-engine
@@ -84,11 +80,7 @@ This creates a `.context-engine` directory containing the complete runtime.
 
 ### Option 2: Tarball
 
-Download and extract the release archive:
-
-```bash
-cd /path/to/your/project
-```
+From your project root, download and extract the release archive.
 
 **Download latest release automatically:**
 ```bash
