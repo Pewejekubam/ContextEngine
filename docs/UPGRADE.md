@@ -106,9 +106,8 @@ If you installed via tarball, follow these steps.
 
 The initialization prompt handles upgrades automatically:
 
-1. Download the latest release:
+1. Download the latest release (from your project root):
    ```bash
-   cd /path/to/your/project
    curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest \
      | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
    ```
@@ -116,7 +115,6 @@ The initialization prompt handles upgrades automatically:
 2. Extract new version over your existing installation:
    ```bash
    tar -xf context-engine-runtime-v*.tar
-   cd .context-engine
    ```
 
 3. Run initialization (detects upgrade automatically):
@@ -138,9 +136,8 @@ The initialization prompt handles upgrades automatically:
 
 If you prefer manual control:
 
-1. Download new version:
+1. Download new version (from your project root):
    ```bash
-   cd /path/to/your/project
    curl -s https://api.github.com/repos/Pewejekubam/ContextEngine/releases/latest \
      | grep "browser_download_url.*tar" | cut -d '"' -f 4 | wget -qi -
    ```
