@@ -133,10 +133,10 @@ For upgrading between versions, see [docs/UPGRADE.md](docs/UPGRADE.md).
 
 ---
 
-[Unreleased]: https://github.com/Pewejekubam/ContextEngine/compare/v3.5.0...HEAD
+[Unreleased]: https://github.com/Pewejekubam/ContextEngine/compare/v3.6.0...HEAD
 [3.5.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.1...v3.5.0
 [3.4.1]: https://github.com/Pewejekubam/ContextEngine/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.2.0...v3.3.0
-[3.2.0]: https://github.com/Pewejekubam/ContextEngine/compare/v3.1.0...v3.2.0
-[3.1.0]: https://github.com/Pewejekubam/ContextEngine/releases/tag/v3.1.0
+[3.2.0]: https://github.com/Pewejekubam/ContextEngine/releases/tag/v3.2.0
+[3.1.0]: https://github.com/Pewejekubam/ContextEngine/releases/tag/v3.2.0
