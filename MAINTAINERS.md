@@ -202,10 +202,10 @@ Example deprecation timeline:
 
 ## Contact & Questions
 
-- **General Questions:** [GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)
+- **General Questions:** [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues) (use `question` label)
 - **Bug Reports:** [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)
 - **Security Issues:** See [SECURITY.md](SECURITY.md)
-- **Direct Contact:** Open a Discussion or create an Issue
+- **Direct Contact:** Create an Issue
 
 ---
 

@@ -238,8 +238,8 @@ Help others learn by sharing your experience:
 4. **Recommendations** - What would help others?
 
 **Where to share:**
-- [GitHub Discussions - Show and Tell](https://github.com/Pewejekubam/ContextEngine/discussions/new?category=show-and-tell)
-- Blog posts (link in show and tell)
+- [GitHub Issues - Share Your Use Case](https://github.com/Pewejekubam/ContextEngine/issues/new?labels=show-and-tell&title=Use%20Case:)
+- Blog posts (link in your issue)
 - Twitter/social media (mention @ContextEngine)
 - Conference talks, podcasts, etc.
 
@@ -361,4 +361,4 @@ Monitor community health:
 - **[SECURITY.md](../SECURITY.md)** - Reporting security issues
 - **[ROADMAP.md](../ROADMAP.md)** - What we're building next
 - **[FAQ.md](FAQ.md)** - Common questions
-- **[GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)** - Join the conversation!
+- **[GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)** - Join the conversation!

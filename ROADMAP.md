@@ -165,7 +165,7 @@ Listen to users. If many people want feature X, we prioritize it.
 ### Suggest Features
 
 1. **Check if already planned** - Read this roadmap first
-2. **Open discussion** - [GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)
+2. **Open an issue** - [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues/new?labels=enhancement&title=Feature:)
 3. **Explain your use case** - Show the problem you're trying to solve
 4. **Community upvoting** - Others can +1 ideas they want
 
@@ -187,16 +187,16 @@ As the project grows, we're looking for:
 - Integration builders
 - Community advocates
 
-Reach out on [Discussions](https://github.com/Pewejekubam/ContextEngine/discussions) if interested.
+Reach out via [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues) if interested.
 
 ---
 
 ## Feedback & Questions
 
-- **Want to discuss roadmap?** → [GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)
+- **Want to discuss roadmap?** → [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)
 - **Found a bug?** → [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)
 - **Want to contribute?** → [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 
-Last updated: December 2025 | [Discussions](https://github.com/Pewejekubam/ContextEngine/discussions) | [Issues](https://github.com/Pewejekubam/ContextEngine/issues)
+Last updated: December 2025 | [Issues](https://github.com/Pewejekubam/ContextEngine/issues)

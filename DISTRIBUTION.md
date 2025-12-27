@@ -197,7 +197,7 @@ This is a normal OSS pattern, but we think it's better to be upfront about it ra
 
 - **How do I...?** → [FAQ.md](docs/FAQ.md)
 - **I found a bug** → [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)
-- **I have an idea** → [GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)
+- **I have an idea** → [GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues/new?labels=enhancement&title=Idea:)
 - **I want to contribute** → [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---

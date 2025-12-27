@@ -524,11 +524,10 @@ A: **Yes!** See [CONTRIBUTING.md](../CONTRIBUTING.md) for:
 
 ### Q: Where can I ask questions?
 
-A: Three options:
+A: Two options:
 
-1. **[GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)** - Q&A, ideas, use cases
-2. **[GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)** - Bug reports, feature requests
-3. **[FAQ](FAQ.md)** (you're reading it!) - Common questions
+1. **[GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)** - Bug reports, feature requests, Q&A
+2. **[FAQ](FAQ.md)** (you're reading it!) - Common questions
 
 ### Q: How do I stay updated?
 

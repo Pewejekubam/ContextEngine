@@ -42,7 +42,6 @@ Homepage = "https://github.com/Pewejekubam/ContextEngine"
 Documentation = "https://github.com/Pewejekubam/ContextEngine#documentation"
 Repository = "https://github.com/Pewejekubam/ContextEngine.git"
 "Bug Tracker" = "https://github.com/Pewejekubam/ContextEngine/issues"
-"Discussions" = "https://github.com/Pewejekubam/ContextEngine/discussions"
 
 [tool.setuptools]
 packages = []

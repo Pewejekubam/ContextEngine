@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Question or Discussion
-    url: https://github.com/Pewejekubam/ContextEngine/discussions
-    about: For questions, discussions, or general help
+  - name: FAQ
+    url: https://github.com/Pewejekubam/ContextEngine/blob/main/docs/FAQ.md
+    about: Check the FAQ for common questions before opening an issue
   - name: Security Vulnerability
     url: https://github.com/Pewejekubam/ContextEngine/security/advisories/new
     about: Report security vulnerabilities privately

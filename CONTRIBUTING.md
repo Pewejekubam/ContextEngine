@@ -43,8 +43,8 @@ Before submitting:
 
 ## Questions & Discussions
 
-- **Technical questions?** - Open an [Issue](https://github.com/Pewejekubam/ContextEngine/issues) or ask in [Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)
-- **Want to discuss an idea first?** - Use [Discussions](https://github.com/Pewejekubam/ContextEngine/discussions) before submitting PR
+- **Technical questions?** - Open an [Issue](https://github.com/Pewejekubam/ContextEngine/issues) with the `question` label
+- **Want to discuss an idea first?** - [Open an issue](https://github.com/Pewejekubam/ContextEngine/issues/new?labels=enhancement&title=Proposal:) before submitting PR
 - **Need help getting started?** - See [Community Guide](docs/COMMUNITY.md) and [FAQ](docs/FAQ.md)
 
 ## Good First Issues
@@ -67,7 +67,7 @@ See [SECURITY.md](SECURITY.md) for responsible disclosure process.
 
 ## Community
 
-- **[GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)** - Q&A, ideas, feedback
+- **[GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)** - Q&A, ideas, feedback
 - **[FAQ](docs/FAQ.md)** - Common questions
 - **[Community Guide](docs/COMMUNITY.md)** - How to engage
 - **[ROADMAP](ROADMAP.md)** - Where we're headed

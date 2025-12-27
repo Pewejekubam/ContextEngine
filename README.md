@@ -176,8 +176,8 @@ Your local configuration in `config/` is preserved.
 
 ## Community
 
-- **[GitHub Discussions](https://github.com/Pewejekubam/ContextEngine/discussions)** - Ask questions, share ideas, show your use cases
-- **[Issues & Bug Reports](https://github.com/Pewejekubam/ContextEngine/issues)** - Report bugs or suggest features
+- **[GitHub Issues](https://github.com/Pewejekubam/ContextEngine/issues)** - Report bugs, suggest features, ask questions
+- **[GitHub Issues (Questions)](https://github.com/Pewejekubam/ContextEngine/issues/new?labels=question&title=Question:)** - Ask questions, share ideas, show your use cases
 - **[FAQ](docs/FAQ.md)** - Common questions answered
 - **[Community Guide](docs/COMMUNITY.md)** - How to engage with the community
 - **[Contributing](CONTRIBUTING.md)** - How to contribute code and documentation
@@ -187,7 +187,7 @@ Your local configuration in `config/` is preserved.
 
 See [ROADMAP.md](ROADMAP.md) for where Context Engine is headed. Current release is **v3.6.0** (December 2025).
 
-Have ideas? [Start a discussion](https://github.com/Pewejekubam/ContextEngine/discussions) to suggest features!
+Have ideas? [Open an issue](https://github.com/Pewejekubam/ContextEngine/issues/new?labels=enhancement&title=Feature:) to suggest features!
 
 ## Requirements
 
